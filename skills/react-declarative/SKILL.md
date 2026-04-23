@@ -9,7 +9,6 @@ description: >
   - Asks about layout containers (Group, Paper, Outline, Expansion, Tabs, Condition, Fragment, Layout)
   - Asks about state management in react-declarative: handler, onChange, payload, isInvalid, isVisible, isDisabled
   - Asks about async hooks: useSinglerunAction, useQueuedAction, useAsyncValue, useAsyncProgress, useAsyncAction
-  - Asks about MVVM collection hooks: useCollection, useModel, useEntity
   - Asks about routing: Switch component, ISwitchItem, useRouteParams, useRouteItem, parseRouteUrl
   - Asks about reactive programming: Subject, BehaviorSubject, Source, useSubject, useChangeSubject
   - Asks about dependency injection: provide, inject, createServiceManager, IService
@@ -58,7 +57,7 @@ Load these when you need deep detail on a specific area:
 - [`references/components.md`](references/components.md) — Scaffold2, KanbanView, WizardView
 - [`references/field-types.md`](references/field-types.md) — All FieldType values with examples
 - [`references/layout-types.md`](references/layout-types.md) — All layout containers (Group, Paper, Tabs, Condition, etc.)
-- [`references/hooks.md`](references/hooks.md) — All async hooks + collection/MVVM hooks + navigation hooks
+- [`references/hooks.md`](references/hooks.md) — All async hooks + navigation hooks
 - [`references/advanced.md`](references/advanced.md) — Routing (Switch), reactive programming (Subject/Source), DI (provide/inject), SlotFactory, AI generation
 
 ## Minimal working examples
