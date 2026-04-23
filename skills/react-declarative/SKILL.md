@@ -145,9 +145,8 @@ export const UserGrid = () => (
 npm install --save react-declarative tss-react @mui/material @emotion/react @emotion/styled
 ```
 
-Requires **MUI v5** (`@mui/material ^5.5.0`). Not compatible with MUI v4 or v6.
-
 Lite variant (forms only, smaller footprint):
+
 ```bash
 npm install --save react-declarative-lite
 ```

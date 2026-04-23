@@ -3,32 +3,92 @@
   "evals": [
     {
       "id": 1,
-      "prompt": "Мне нужна форма для редактирования профиля пользователя. Поля: имя (обязательное), email (с валидацией формата), роль (выпадающий список: admin, editor, viewer), дата рождения, переключатель 'аккаунт активен'. Имя и email на одной строке (50/50), остальные поля на всю ширину. Используй react-declarative.",
-      "expected_output": "TypedField[] схема с FieldType.Group для двухколоночного layout, FieldType.Text для имени и email (с isInvalid для email), FieldType.Combo для роли, FieldType.Date для даты, FieldType.Switch для активации. Компонент с One/OneTyped, handler и onChange.",
+      "prompt": "I need a user profile edit form with react-declarative. Fields: first name (required), email (format validation), role (dropdown: admin, editor, viewer), date of birth, 'account active' toggle switch. First name and email should be on the same line (50/50 columns), other fields full width. Show a validation error under email immediately when it's invalid.",
+      "expected_output": "TypedField[] schema with FieldType.Group for two-column layout (columns: '6'), FieldType.Text for first name with validation.required, FieldType.Text for email with isInvalid returning null or error string, FieldType.Combo for role with itemList, FieldType.Date for birth date, FieldType.Switch for active flag. Component using OneTyped with handler and onChange (skipping save when initial=true).",
       "files": []
     },
     {
       "id": 2,
-      "prompt": "Как сделать таблицу пользователей с react-declarative? Нужны колонки: имя, email, роль, активен (чекбокс). Фильтр по имени и роли. Кнопка 'Создать' в тулбаре. По клику на строку открывать детали. В каждой строке кнопка 'Редактировать'. Данные получать с сервера с пагинацией.",
-      "expected_output": "ListTyped с IColumn[] (ColumnType.Text, ColumnType.CheckBox, ColumnType.Action), filters: TypedField[], actions с ActionType.Add, async handler возвращающий { rows, total }, onRowClick и onRowAction коллбэки.",
+      "prompt": "How do I build a paginated users data grid with react-declarative? I need columns: name, email, role, active (checkbox). Filter panel with name search and role dropdown. A 'Create' button in the toolbar. Clicking a row should navigate to detail view. Each row should have an 'Edit' action. Data comes from a server endpoint that supports pagination.",
+      "expected_output": "ListTyped with IColumn[] using ColumnType.Text, ColumnType.CheckBox, ColumnType.Action. filters: TypedField[] with FieldType.Text and FieldType.Combo. actions array with ActionType.Add. Async handler returning { rows, total } with filterData/pagination/sort params. onRowClick for navigation. onRowAction for edit action. withSearch and withArrowPagination props.",
       "files": []
     },
     {
       "id": 3,
-      "prompt": "Есть форма с react-declarative. Поле 'тип аккаунта' (personal/business). Когда выбрано business — показать поля 'название компании' и 'ИНН'. Когда personal — скрыть. Как это реализовать?",
-      "expected_output": "isVisible коллбэк на полях компании и ИНН проверяющий accountType === 'business', либо FieldType.Condition с condition предикатом. Объяснение разницы между isVisible (значение сохраняется) и Condition (удаляет из DOM).",
+      "prompt": "I have a react-declarative form with an 'account type' field (personal / business). When business is selected, I need to show company name and VAT number fields. When personal is selected, hide them. What's the best way to implement this, and what's the difference between isVisible and FieldType.Condition?",
+      "expected_output": "isVisible callback on company name and VAT fields checking accountType === 'business'. Alternative using FieldType.Condition with condition predicate. Clear explanation: isVisible hides the field but keeps the value in data; FieldType.Condition removes the entire DOM subtree. Recommendation on when to use each.",
       "files": []
     },
     {
       "id": 4,
-      "prompt": "Как правильно настроить автосохранение формы в react-declarative? Хочу сохранять на сервер при каждом изменении, но с дебаунсом 500мс. И чтобы при первоначальной загрузке данных сохранение не срабатывало.",
-      "expected_output": "Использование onChange с флагом initial, fieldDebounce проп, debounce из lodash/useMemo для автосейва. Объяснение что initial=true при первой эмиссии после handler.",
+      "prompt": "How do I set up auto-save in react-declarative? I want to save to the server on every change, but debounced by 500ms. The initial form load should NOT trigger a save. Also, how do I debounce individual text field keystrokes so the form state doesn't update on every keystroke?",
+      "expected_output": "onChange with initial flag check (if (!initial) save(data)). fieldDebounce prop on One for text input debouncing. useMemo + debounce for the save function. Explanation that initial=true on the first emission after handler resolves. Code example with OneTyped showing both fieldDebounce and debounced onChange.",
       "files": []
     },
     {
       "id": 5,
-      "prompt": "Нужно приложение с боковым меню: разделы Dashboard, Users (только для admin), Settings. При клике навигировать через react-router. Как сделать на react-declarative?",
-      "expected_output": "Scaffold2 с IScaffold2Group[], isVisible async guard для Users, onOptionClick коллбэк для навигации, activeOptionPath из текущего роута.",
+      "prompt": "I want to build an app shell with react-declarative: sidebar navigation with sections Dashboard, Users (admin only), Settings. Clicking a menu item should navigate using a history object. How do I sync the active menu item with the current route?",
+      "expected_output": "Scaffold2 or Scaffold3 with IScaffold2Group[] options. isVisible async guard on Users option checking user role from payload. onOptionClick callback calling history.push. activeOptionPath computed from current route using useRouteItem. Extending ISwitchItem with sideMenu field. Code showing App.tsx with Switch + Scaffold3 wired together.",
+      "files": []
+    },
+    {
+      "id": 6,
+      "prompt": "I'm building a multi-step registration wizard with react-declarative. Steps: Account Info, Personal Details, Confirmation. Each step has a form. I need a progress bar and Next/Back navigation between steps. How do I implement this?",
+      "expected_output": "WizardView with IWizardStep[] and IWizardOutlet[]. Each outlet rendering a form with One. WizardContainer wrapping step content with WizardNavigation in the Navigation slot. history.replace() for navigation between steps. setLoading/setProgress for async operations. IWizardOutletProps interface for outlet component props.",
+      "files": []
+    },
+    {
+      "id": 7,
+      "prompt": "How do I prevent double-submits on a form save button in react-declarative? The user clicks Save, an API call is made, and I don't want them to trigger it twice while it's loading. Also show a loading spinner on the button.",
+      "expected_output": "useSinglerunAction hook wrapping the async save function. execute, loading, error destructuring. Button disabled while loading. Explanation that concurrent calls while loading are silently dropped. Alternative using ActionButton component that shows spinner automatically. Code example.",
+      "files": []
+    },
+    {
+      "id": 8,
+      "prompt": "I have a react-declarative form where I need cross-field validation: the 'end date' field must be after the 'start date'. How do I implement this? Also, I want to show a non-blocking warning (not an error) if the date range is longer than 30 days.",
+      "expected_output": "isInvalid on end date field receiving full data object, checking endDate > startDate, returning null or error string. isIncorrect for the non-blocking warning about 30+ day range. Explanation that isInvalid returns null (valid) or string (error), and returning undefined/false is wrong. Code example with both callbacks.",
+      "files": []
+    },
+    {
+      "id": 9,
+      "prompt": "How do I inject a custom React component (a map picker) into a specific slot in a react-declarative form? The map picker should be able to write latitude and longitude back into the form data.",
+      "expected_output": "FieldType.Component with element prop. Props available inside element: data, payload, onChange for write-back. Example showing onChange({ latitude: coords.lat, longitude: coords.lng }). Warning that element re-renders on every form change. Optionally mention OneSlotFactory for global replacement.",
+      "files": []
+    },
+    {
+      "id": 10,
+      "prompt": "How does the dependency injection system work in react-declarative? I want to set up services (ApiService, AuthService) so I can use them across the whole app without prop drilling. Show me the recommended pattern.",
+      "expected_output": "Three-file pattern: TYPES.ts with Symbol keys, config.ts with provide() registrations, ioc.ts with inject() calls. Code examples for all three. Explanation that factories are lazy singletons. Usage in components via ioc.apiService.getUser(). Optionally showing route lifecycle with prefetch/unload calling ioc service methods.",
+      "files": []
+    },
+    {
+      "id": 11,
+      "prompt": "I need to build a kanban board with react-declarative. Columns: Backlog, In Progress, Done. Cards have title and assignee. Dragging a card to a new column should call an API. I also need real-time updates via WebSocket.",
+      "expected_output": "KanbanView with IBoardColumn[] and IBoardItem[]. onChangeColumn callback calling API. IBoardRow for card content rows. reloadSubject with useSubject for real-time: subscribe to WebSocket, emit reloadSubject.next() on message. cardLabel prop or IBoardItem.label for card headers. withGoBack prop if needed.",
+      "files": []
+    },
+    {
+      "id": 12,
+      "prompt": "How do I set up client-side routing with react-declarative? I need: a redirect from / to /dashboard if authenticated, a /login page that's always public, a /users page that requires the 'admin' role, and /users/:id redirecting to /users/:id/card.",
+      "expected_output": "ISwitchItem[] array. Conditional redirect on / using function form. guard on /users checking admin role. Param-based redirect on /users/:id to /users/:id/card using ({id}) => template. element as factory function () => <Page />. Switch component with history prop. Loader and NotFound components.",
+      "files": []
+    },
+    {
+      "id": 13,
+      "prompt": "I want to use reactive subjects in react-declarative to trigger a form reload from outside the component. Also show how to auto-save when form data changes without putting the save logic inside onChange.",
+      "expected_output": "useSubject for reloadSubject passed to One's reloadSubject prop. useChangeSubject converting formData prop to a Subject that emits on change. useSubscription for subscribing without managing cleanup. BehaviorSubject for shared state. Code showing both the reload pattern and the auto-save pattern with useChangeSubject + useSubscription.",
+      "files": []
+    },
+    {
+      "id": 14,
+      "prompt": "How do I implement role-based field visibility in react-declarative? Some fields should only be visible to admin users, others to all users. The role comes from an auth context, not from form data.",
+      "expected_output": "payload prop on One passing user role (payload={{ userRole: currentUser.role }}). hidden prop on fields checking payload.userRole. Or isVisible callback receiving (data, payload) and checking payload. Explanation that payload does not trigger re-renders (vs context prop). Example with TypedField<Data, IPayload> generics for type safety.",
+      "files": []
+    },
+    {
+      "id": 15,
+      "prompt": "How do I architect a full react-declarative project from scratch? I want to know: where to put TypedField arrays, how to structure services, how to wire up DI, and what the recommended folder layout is.",
+      "expected_output": "Folder structure: assets/ for TypedField[]/IColumn[], lib/types.ts + lib/config.ts + lib/ioc.ts for DI, lib/services/db/ for DAL, lib/services/view/ for application layer, pages/ for UI, config/routes.tsx for routing. 5-layer architecture explanation. DB service pattern with CRUD + paginate + Subjects. View service delegating to DB. Entry point providers stack. Reference to react-pocketbase-crm clone.",
       "files": []
     }
   ]
