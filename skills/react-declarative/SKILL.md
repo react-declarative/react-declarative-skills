@@ -99,6 +99,13 @@ Load these when you need a working example close to what the user is asking for:
 - [`references/gallery_of_controls_example.md`](references/gallery_of_controls_example.md) — every FieldType in one form; use as a lookup when a less common field type is needed
 - [`references/typography_example.md`](references/typography_example.md) — typography and display-only fields (FieldType.Typography, Line, Icon)
 
+## Real-world project utilities
+
+- [`pagination-hooks-and-iterator-functions.md`](references/pagination-hooks-and-iterator-functions.md) — useArrayPaginator, useOffsetPaginator, useBidOffsetPaginator, iterateUnion, iterateDocuments, iteratePromise, useColumnConfig, useGridAction, useMediaContext
+- [`references/ui-components.md`](references/ui-components.md) — VirtualView (children must use forwardRef), ScrollView, Async, Breadcrumbs2, ActionMenu
+- [`references/hooks-and-modals.md`](references/hooks-and-modals.md) — useQueryPagination (URL list filter persistence), useOne, usePrompt, useAlert, useModalManager, useActionModal, useOutletModal
+- [`references/view-components.md`](references/view-components.md) — OutletView (entity edit shell), TabsView (tabbed layout), WizardView + WizardContainer + WizardNavigation, CalendarView (month calendar with handler/renderItem/BeforeDayHeader/dotSide)
+
 ## Minimal working examples
 
 ### Form with One
