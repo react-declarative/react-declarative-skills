@@ -75,6 +75,7 @@ Load these for deeper "how does this work" context on cross-cutting topics:
 - [`references/guide-custom-fields.md`](references/guide-custom-fields.md) — FieldType.Component write-back, OneSlotFactory slot interfaces, when to use each
 - [`references/guide-form-validation.md`](references/guide-form-validation.md) — isInvalid, cross-field rules, async validation, isIncorrect, dirty flag, getAvailableFields
 - [`references/guide-routing.md`](references/guide-routing.md) — Switch setup, guards, prefetch/unload, redirects with params, OutletView, useRouteParams
+- [`references/guide-architecture.md`](references/guide-architecture.md) — full project architecture: folder structure, DI wiring (types/config/ioc), DB/View service layers, declarative assets, route config, modal pattern, HOCs, entry point providers stack, checklist for adding a new entity
 
 ## Example schemas (real-world TypedField[] code)
 
