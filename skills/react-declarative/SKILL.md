@@ -52,13 +52,19 @@ description: >
 
 Load these when you need deep detail on a specific area:
 
-- [`references/one-form.md`](references/one-form.md) — `<One />` props, TypedField, field callbacks, state management
-- [`references/list-grid.md`](references/list-grid.md) — `<List />` props, IColumn, filters, actions, chips
+- [`references/installation.md`](references/installation.md) — install, peer deps, tsconfig, first form/grid, Next.js/Vite notes
+- [`references/one-form.md`](references/one-form.md) — `<One />` props, TypedField schema, field callbacks, reloadSubject, apiRef
+- [`references/state-management.md`](references/state-management.md) — handler, onChange/initial flag, payload vs context, isInvalid/isVisible/compute, dirty, defaultValue
+- [`references/list-grid.md`](references/list-grid.md) — `<List />` props, IColumn, ColumnType, filters, actions, chips, rowActions, operations
+- [`references/field-types.md`](references/field-types.md) — All FieldType values with examples (Text, Combo, Items, Switch, Slider, File, Component, Init, Phony…)
+- [`references/layout-types.md`](references/layout-types.md) — All layout containers (Group, Paper, Tabs, Condition, Fragment, Box, Layout…)
 - [`references/components.md`](references/components.md) — Scaffold2, KanbanView, WizardView
-- [`references/field-types.md`](references/field-types.md) — All FieldType values with examples
-- [`references/layout-types.md`](references/layout-types.md) — All layout containers (Group, Paper, Tabs, Condition, etc.)
-- [`references/hooks.md`](references/hooks.md) — All async hooks + navigation hooks
-- [`references/advanced.md`](references/advanced.md) — Routing (Switch), reactive programming (Subject/Source), DI (provide/inject), SlotFactory, AI generation
+- [`references/hooks.md`](references/hooks.md) — Async hooks (useSinglerunAction, useQueuedAction, useAsyncValue…) + navigation hooks + useCollection/useModel
+- [`references/reactive.md`](references/reactive.md) — Subject, BehaviorSubject, EventEmitter, useSubject, useChangeSubject, Source pipelines
+- [`references/routing.md`](references/routing.md) — Switch router, ISwitchItem, guards, prefetch/unload, redirects, OutletView, useRouteParams
+- [`references/dependency-injection.md`](references/dependency-injection.md) — provide/inject, TYPES symbols, scoped containers, route lifecycle with DI
+- [`references/slot-factory.md`](references/slot-factory.md) — OneSlotFactory, ListSlotFactory, all slot interfaces, react-declarative-mantine
+- [`references/advanced.md`](references/advanced.md) — AI-assisted form generation, playground, prompt workflow, reference sample list
 
 ## Minimal working examples
 

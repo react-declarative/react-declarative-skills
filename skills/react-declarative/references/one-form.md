@@ -137,12 +137,6 @@ isInvalid: ({ from, to }) => {
   return null;
 },
 
-// Async validation
-isInvalid: async ({ username }) => {
-  const taken = await checkUsername(username);
-  return taken ? 'Username taken' : null;
-},
-
 // Non-blocking warning
 isIncorrect: ({ description }) =>
   description?.length < 20 ? 'Description too short' : null,
