@@ -66,6 +66,16 @@ Load these when you need deep detail on a specific area:
 - [`references/slot-factory.md`](references/slot-factory.md) — OneSlotFactory, ListSlotFactory, all slot interfaces, react-declarative-mantine
 - [`references/advanced.md`](references/advanced.md) — AI-assisted form generation, playground, prompt workflow, reference sample list
 
+## How-to guides (narrative explanations with full examples)
+
+Load these for deeper "how does this work" context on cross-cutting topics:
+
+- [`references/guide-async-data.md`](references/guide-async-data.md) — choosing between handler/useSinglerunAction/useQueuedAction/useAsyncProgress/useAsyncValue/ActionButton
+- [`references/guide-conditional-fields.md`](references/guide-conditional-fields.md) — isVisible vs FieldType.Condition vs hidden prop, isDisabled, isReadonly, payload for RBAC
+- [`references/guide-custom-fields.md`](references/guide-custom-fields.md) — FieldType.Component write-back, OneSlotFactory slot interfaces, when to use each
+- [`references/guide-form-validation.md`](references/guide-form-validation.md) — isInvalid, cross-field rules, async validation, isIncorrect, dirty flag, getAvailableFields
+- [`references/guide-routing.md`](references/guide-routing.md) — Switch setup, guards, prefetch/unload, redirects with params, OutletView, useRouteParams
+
 ## Example schemas (real-world TypedField[] code)
 
 Load these when you need a working example close to what the user is asking for:
@@ -140,6 +150,16 @@ Lite variant (forms only, smaller footprint):
 ```bash
 npm install --save react-declarative-lite
 ```
+
+## When you're stuck — reference implementation
+
+If something isn't working, the patterns are unclear, or the documentation doesn't cover your case, clone the reference CRM application — it's a complete real-world project using react-declarative end-to-end:
+
+```bash
+git clone https://github.com/react-declarative/react-pocketbase-crm.git
+```
+
+It demonstrates: routing with Switch + Scaffold2, forms with One, data grids with List, dependency injection with provide/inject, real-time with Subject/BehaviorSubject, and full TypeScript generics throughout. Browse `src/` to find working examples of any pattern you need.
 
 ## Key rules when generating code
 
