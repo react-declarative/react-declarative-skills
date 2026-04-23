@@ -1,0 +1,35 @@
+{
+  "skill_name": "react-declarative",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Мне нужна форма для редактирования профиля пользователя. Поля: имя (обязательное), email (с валидацией формата), роль (выпадающий список: admin, editor, viewer), дата рождения, переключатель 'аккаунт активен'. Имя и email на одной строке (50/50), остальные поля на всю ширину. Используй react-declarative.",
+      "expected_output": "TypedField[] схема с FieldType.Group для двухколоночного layout, FieldType.Text для имени и email (с isInvalid для email), FieldType.Combo для роли, FieldType.Date для даты, FieldType.Switch для активации. Компонент с One/OneTyped, handler и onChange.",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "Как сделать таблицу пользователей с react-declarative? Нужны колонки: имя, email, роль, активен (чекбокс). Фильтр по имени и роли. Кнопка 'Создать' в тулбаре. По клику на строку открывать детали. В каждой строке кнопка 'Редактировать'. Данные получать с сервера с пагинацией.",
+      "expected_output": "ListTyped с IColumn[] (ColumnType.Text, ColumnType.CheckBox, ColumnType.Action), filters: TypedField[], actions с ActionType.Add, async handler возвращающий { rows, total }, onRowClick и onRowAction коллбэки.",
+      "files": []
+    },
+    {
+      "id": 3,
+      "prompt": "Есть форма с react-declarative. Поле 'тип аккаунта' (personal/business). Когда выбрано business — показать поля 'название компании' и 'ИНН'. Когда personal — скрыть. Как это реализовать?",
+      "expected_output": "isVisible коллбэк на полях компании и ИНН проверяющий accountType === 'business', либо FieldType.Condition с condition предикатом. Объяснение разницы между isVisible (значение сохраняется) и Condition (удаляет из DOM).",
+      "files": []
+    },
+    {
+      "id": 4,
+      "prompt": "Как правильно настроить автосохранение формы в react-declarative? Хочу сохранять на сервер при каждом изменении, но с дебаунсом 500мс. И чтобы при первоначальной загрузке данных сохранение не срабатывало.",
+      "expected_output": "Использование onChange с флагом initial, fieldDebounce проп, debounce из lodash/useMemo для автосейва. Объяснение что initial=true при первой эмиссии после handler.",
+      "files": []
+    },
+    {
+      "id": 5,
+      "prompt": "Нужно приложение с боковым меню: разделы Dashboard, Users (только для admin), Settings. При клике навигировать через react-router. Как сделать на react-declarative?",
+      "expected_output": "Scaffold2 с IScaffold2Group[], isVisible async guard для Users, onOptionClick коллбэк для навигации, activeOptionPath из текущего роута.",
+      "files": []
+    }
+  ]
+}
