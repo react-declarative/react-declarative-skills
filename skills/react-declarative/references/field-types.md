@@ -259,8 +259,6 @@ Inject arbitrary React component. Receives full data + payload.
 }
 ```
 
-⚠️ Re-renders on every form change by default. Memoize if expensive.
-
 ### FieldType.Init
 Invisible field; `compute` runs once on mount to set initial derived values.
 ```ts
@@ -271,12 +269,3 @@ Invisible field; `compute` runs once on mount to set initial derived values.
 }
 ```
 
-### FieldType.Phony
-Invisible field for derived values that update on every change (no UI).
-```ts
-{
-  type: FieldType.Phony,
-  name: 'fullName',
-  compute: ({ firstName, lastName }) => `${firstName} ${lastName}`,
-}
-```
