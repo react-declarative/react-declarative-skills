@@ -1,0 +1,106 @@
+{
+  "$schema": "https://mintlify.com/docs.json",
+  "name": "react-declarative",
+  "theme": "luma",
+  "colors": {
+    "primary": "#1976d2",
+    "light": "#42a5f5",
+    "dark": "#0d47a1"
+  },
+  "navbar": {
+    "primary": {
+      "type": "github",
+      "href": "https://github.com/react-declarative/react-declarative"
+    }
+  },
+  "logo": {
+    "light": "/images/logo_light.svg",
+    "dark": "/images/logo_dark.svg"
+  },
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "installation",
+              "quickstart"
+            ]
+          },
+          {
+            "group": "Core Concepts",
+            "pages": [
+              "concepts/field-schema",
+              "concepts/field-types",
+              "concepts/layout-types",
+              "concepts/state-management"
+            ]
+          },
+          {
+            "group": "Components",
+            "pages": [
+              "components/one",
+              "components/list",
+              "components/scaffold",
+              "components/kanban",
+              "components/wizard"
+            ]
+          },
+          {
+            "group": "Guides",
+            "pages": [
+              "guides/form-validation",
+              "guides/conditional-fields",
+              "guides/custom-fields",
+              "guides/async-data",
+              "guides/routing"
+            ]
+          },
+          {
+            "group": "Advanced",
+            "pages": [
+              "advanced/slot-factory",
+              "advanced/dependency-injection",
+              "advanced/reactive-programming",
+              "advanced/ai-integration"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "Components",
+            "pages": [
+              "api/components/one",
+              "api/components/list",
+              "api/components/scaffold2",
+              "api/components/kanban-view",
+              "api/components/wizard-view"
+            ]
+          },
+          {
+            "group": "Hooks",
+            "pages": [
+              "api/hooks/async-hooks",
+              "api/hooks/collection-hooks",
+              "api/hooks/navigation-hooks"
+            ]
+          },
+          {
+            "group": "Types",
+            "pages": [
+              "api/types/field-type",
+              "api/types/column-type",
+              "api/types/typed-field"
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

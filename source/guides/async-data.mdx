@@ -1,0 +1,286 @@
+---
+title: "Async Data Patterns in react-declarative"
+description: "Async data patterns in react-declarative: load form data with handler, prevent duplicate calls with useSinglerunAction, queue actions, and track batch progress."
+---
+
+React-declarative ships with a cohesive set of primitives for every async data pattern you will encounter: loading initial form data, preventing duplicate submissions, queuing actions in order, tracking batch progress, and fetching data inside hooks. Each primitive returns a `loading` and `error` state alongside the `execute` function, so you can drive loading indicators without managing that state yourself.
+
+## Loading form data with `handler`
+
+The `handler` prop on `<One />` accepts either a plain object or an async function that resolves to the initial form data. React-declarative calls it once when the component mounts.
+
+```tsx
+import { One } from 'react-declarative';
+
+<One
+  fields={fields}
+  handler={async () => {
+    const data = await fetchUserProfile(userId);
+    return data;
+  }}
+/>
+```
+
+For a list grid, `ListTyped` accepts a `handler` (also called `ListHandler`) that must return an object with `rows` and `total`:
+
+```tsx
+import { ListTyped } from 'react-declarative';
+
+<ListTyped
+  columns={columns}
+  filters={filters}
+  handler={async ({ search, sort, pagination, filterData }) => {
+    const { items, count } = await fetchUsers({
+      q: search,
+      sortField: sort.field,
+      sortDir: sort.dir,
+      page: pagination.page,
+      limit: pagination.rowsPerPage,
+      ...filterData,
+    });
+    return {
+      rows: items,
+      total: count,
+    };
+  }}
+/>
+```
+
+<Note>
+  The list `handler` always returns `{ rows, total }`. The `total` value drives
+  pagination controls.
+</Note>
+
+## `useSinglerunAction` — prevent duplicate calls
+
+When a user clicks a button multiple times, `useSinglerunAction` guarantees the underlying async function runs only once per pending execution. If `execute` is called again while the previous promise is still pending, the second call is dropped.
+
+```tsx
+import { useSinglerunAction, ActionIcon } from 'react-declarative';
+import { CloudUpload } from '@mui/icons-material';
+
+const UploadButton = ({ onChange }) => {
+  const { execute } = useSinglerunAction(async () => {
+    const file = await chooseFile('image/jpeg, image/png');
+    if (file) {
+      const filePath = await uploadFile(file);
+      onChange(filePath);
+    }
+  });
+
+  return (
+    <ActionIcon onClick={execute}>
+      <CloudUpload />
+    </ActionIcon>
+  );
+};
+```
+
+The hook returns `{ loading, error, execute }`. Pass `loading` to a spinner or disable a button while the action is running.
+
+```tsx
+const { loading, error, execute } = useSinglerunAction(async () => {
+  await saveForm(formData);
+});
+
+<button disabled={loading} onClick={execute}>
+  {loading ? 'Saving...' : 'Save'}
+</button>
+```
+
+## `useQueuedAction` — ordered async execution
+
+`useQueuedAction` runs each call in the order it was enqueued. When a new call arrives before the previous one has resolved, it waits its turn rather than cancelling or being dropped. This is useful for real-time state updates (WebSocket messages, Redux-style reducers) where ordering matters.
+
+```tsx
+import { useQueuedAction } from 'react-declarative';
+
+const { execute } = useQueuedAction(
+  async ({ type, payload }) => {
+    if (type === 'create-action') {
+      await createRecord(payload);
+    }
+    if (type === 'update-action') {
+      await updateRecord(payload);
+    }
+    if (type === 'remove-action') {
+      await deleteRecord(payload);
+    }
+  },
+  {
+    onLoadStart: () => setAppbarLoader(true),
+    onLoadEnd: () => setAppbarLoader(false),
+  }
+);
+
+// Subscribe to real-time events and queue each one
+useEffect(() => kanbanService.createSubject.subscribe(execute), []);
+useEffect(() => kanbanService.updateSubject.subscribe(execute), []);
+useEffect(() => kanbanService.removeSubject.subscribe(execute), []);
+```
+
+The returned `execute` also exposes `execute.cancel()` to abandon any queued calls and `execute.clear()` to reset the queue state.
+
+## `useAsyncProgress` — batch processing with progress tracking
+
+`useAsyncProgress` processes an array of items one at a time and reports a `0–100` percent value as it goes. Use it for bulk imports, multi-step wizards, or any operation where you need a `<LinearProgress />`.
+
+```tsx
+import { useAsyncProgress, ActionButton } from 'react-declarative';
+
+const ImportPage = () => {
+  const [progress, setProgress] = useState(0);
+  const [errors, setErrors] = useState([]);
+
+  const { execute } = useAsyncProgress(
+    async ({ data }) => {
+      await createContact(data);
+    },
+    {
+      onProgress: (percent) => setProgress(percent),
+      onError: (errors) => setErrors(errors),
+      onEnd: (isOk) => {
+        if (isOk) history.replace('/report');
+      },
+    }
+  );
+
+  const handleChooseFile = async () => {
+    const file = await chooseFile(
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    );
+    if (file) {
+      const rows = await parseExcelContacts(file);
+      execute(
+        rows.map((row, idx) => ({
+          data: row,
+          label: `Row №${idx + 2}`,
+        }))
+      );
+    }
+  };
+
+  return (
+    <>
+      <LinearProgress variant="determinate" value={progress} />
+      <ActionButton onClick={handleChooseFile}>Choose XLSX</ActionButton>
+    </>
+  );
+};
+```
+
+Each item in the array you pass to `execute` should have `{ label, data }`. The `label` is used in the `onError` callback to identify which item failed.
+
+## `useAsyncValue` — async data in components
+
+`useAsyncValue` fetches data when the component mounts (or when its `deps` change) and exposes the result alongside loading and error states. It is the hook-based equivalent of the `handler` prop.
+
+```tsx
+import { useAsyncValue } from 'react-declarative';
+
+const ProfileCard = ({ userId }) => {
+  const [profile, { loading, error }] = useAsyncValue(
+    async () => await fetchUserProfile(userId),
+    { deps: [userId] }
+  );
+
+  if (loading) return <CircularProgress />;
+  if (error) return <p>Failed to load profile.</p>;
+  if (!profile) return null;
+
+  return (
+    <pre>{JSON.stringify(profile, null, 2)}</pre>
+  );
+};
+```
+
+The hook returns a four-element tuple:
+
+```tsx
+const [
+  data,           // Data | null — the resolved value
+  { loading, error, execute },  // action state and manual re-fetch
+  setData,        // (data: Data) => void — update locally
+  { waitForResult, data$ }  // advanced: await first non-null value, get a ref
+] = useAsyncValue(run, params);
+```
+
+Call `setData` to update the local value optimistically after a mutation, without re-fetching:
+
+```tsx
+const [profile, action, setProfile] = useAsyncValue(() => fetchUserProfile(userId));
+
+const handleSave = async (changes) => {
+  const updated = await saveUserProfile(userId, changes);
+  setProfile(updated); // update without re-fetching
+};
+```
+
+## `useAsyncAction` — general async with cancellation
+
+`useAsyncAction` is the lowest-level hook. It wraps any async function with `loading`/`error` state and cancels any in-flight execution when `execute` is called again.
+
+```tsx
+import { useAsyncAction } from 'react-declarative';
+
+const { loading, error, execute } = useAsyncAction(
+  async (userId: string) => {
+    return await fetchUserProfile(userId);
+  },
+  {
+    fallback: (e) => console.error('Failed:', e),
+  }
+);
+```
+
+## `ActionButton` and `ActionIcon`
+
+Both components accept an async `onClick` handler and automatically show a loading indicator while the promise is pending — no extra state needed.
+
+<CodeGroup>
+
+```tsx ActionButton
+import { ActionButton } from 'react-declarative';
+
+<ActionButton
+  onClick={async () => {
+    await saveChanges(formData);
+  }}
+>
+  Save changes
+</ActionButton>
+```
+
+```tsx ActionIcon
+import { ActionIcon } from 'react-declarative';
+import { CloudUpload } from '@mui/icons-material';
+
+<ActionIcon
+  onClick={async () => {
+    await uploadFile(selectedFile);
+  }}
+>
+  <CloudUpload />
+</ActionIcon>
+```
+
+</CodeGroup>
+
+<Tip>
+  Combine `ActionButton` with `useSinglerunAction` when you need the
+  single-execution guarantee alongside the automatic loading indicator:
+  `<ActionButton onClick={execute}>Save</ActionButton>`.
+</Tip>
+
+## Choosing the right primitive
+
+| Situation | Use |
+|-----------|-----|
+| Load initial form data | `handler` prop on `<One />` |
+| Load list data with pagination | `handler` prop on `<ListTyped />` returning `{ rows, total }` |
+| Prevent double-submit | `useSinglerunAction` |
+| Real-time ordered updates | `useQueuedAction` |
+| Bulk import with progress bar | `useAsyncProgress` |
+| Fetch remote data in a component | `useAsyncValue` |
+| General async with cancellation | `useAsyncAction` |
+| Button that shows spinner while async runs | `ActionButton` / `ActionIcon` |

@@ -1,0 +1,198 @@
+---
+title: "Validating form fields with isInvalid and isIncorrect"
+description: "Validate react-declarative forms with isInvalid callbacks, cross-field rules, async server checks, required fields, and form-level invalidity state tracking."
+---
+
+Validation in react-declarative lives entirely inside your field schema — there is no separate validation library to configure. Each field can declare its own `isInvalid` callback that receives the current form data and returns either a string error message or `null`. This keeps validation logic co-located with the field it describes and makes the schema self-documenting.
+
+## The `isInvalid` callback
+
+Add `isInvalid` to any field. The function receives the entire form data object as its first argument, so you can validate a field against any other field's value. Return a non-null string to mark the field invalid; return `null` to mark it valid.
+
+```tsx
+import { FieldType, TypedField } from 'react-declarative';
+
+const fields: TypedField[] = [
+  {
+    type: FieldType.Text,
+    name: 'email',
+    title: 'Email',
+    isInvalid({ email }) {
+      const expr = /^[\w-.]+@([\w-]+\.)+[\w-]{2,4}$/g;
+      if (!expr.test(email)) {
+        return 'Invalid email address';
+      }
+      return null;
+    },
+  },
+];
+```
+
+<Note>
+  The `isInvalid` function receives the **whole data object**, not just the
+  field's own value. Destructure what you need from the first argument.
+</Note>
+
+## Cross-field validation
+
+Because `isInvalid` sees all form data, you can write rules that span multiple fields. The following example rejects the combination where `from` is greater than `to`:
+
+```tsx
+const fields: TypedField[] = [
+  {
+    type: FieldType.Text,
+    name: 'from',
+    title: 'From',
+    isInvalid: ({ from, to }) => {
+      if (!from || !to) return null;
+      if (parseInt(from) > parseInt(to)) {
+        return 'From must not exceed To';
+      }
+      return null;
+    },
+    defaultValue: '50',
+  },
+  {
+    type: FieldType.Text,
+    name: 'to',
+    title: 'To',
+    isInvalid: ({ from, to }) => {
+      if (!from || !to) return null;
+      if (parseInt(from) > parseInt(to)) {
+        return 'To must not be less than From';
+      }
+      return null;
+    },
+    defaultValue: '150',
+  },
+];
+```
+
+## Async validation
+
+`isInvalid` can be `async`. React-declarative debounces form state change events, so async validators run efficiently without hammering your server on every keystroke.
+
+```tsx
+{
+  type: FieldType.Text,
+  name: 'username',
+  title: 'Username',
+  isInvalid: async ({ username }) => {
+    if (!username) return 'Username is required';
+    const taken = await checkUsernameAvailability(username);
+    if (taken) return 'This username is already taken';
+    return null;
+  },
+}
+```
+
+<Tip>
+  Debouncing is built in — form state change events are rate-limited so your
+  async validator won't fire on every single keystroke.
+</Tip>
+
+## Non-blocking validation with `isIncorrect`
+
+Use `isIncorrect` when you want to show a warning (for example, a spell-check suggestion) without blocking the save button. The error renders in the UI but the form can still be submitted.
+
+```tsx
+{
+  type: FieldType.Text,
+  name: 'description',
+  title: 'Description',
+  isIncorrect: ({ description }) => {
+    if (description && description.length < 20) {
+      return 'Descriptions are typically at least 20 characters';
+    }
+    return null;
+  },
+}
+```
+
+## `isRequired` vs custom `isInvalid`
+
+The `IValidation` object on the `validation` prop provides a shorthand for common rules including required fields:
+
+```tsx
+{
+  type: FieldType.Text,
+  name: 'firstName',
+  title: 'First name',
+  validation: {
+    required: true,
+  },
+}
+```
+
+Use `isInvalid` when you need logic that goes beyond a simple required check — pattern matching, cross-field comparisons, or async server lookups. Use `validation.required` for the straightforward case.
+
+<AccordionGroup>
+  <Accordion title="When does validation fire?">
+    Validation runs whenever the form data changes. The library debounces state
+    updates, so rapid user input (typing) is batched before `isInvalid` is
+    called. Validation also runs on the initial render if the field has a
+    `defaultValue` and `dirty` is set to `true` on that field.
+  </Accordion>
+  <Accordion title="The dirty flag">
+    By default, a field waits for the user to focus and blur it before showing
+    an error. Set `dirty: true` on a field to skip this waiting period and show
+    validation errors immediately, even before the user has interacted with the
+    field.
+
+    ```tsx
+    {
+      type: FieldType.Text,
+      name: 'email',
+      dirty: true,
+      isInvalid({ email }) {
+        // fires immediately, not just after blur
+      },
+    }
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Reacting to form invalidity
+
+Pass an `invalidity` callback on a field to be notified when that field fails validation. This is useful for disabling a submit button or showing a banner.
+
+```tsx
+{
+  type: FieldType.Text,
+  name: 'email',
+  isInvalid({ email }) { /* ... */ },
+  invalidity(name, errorMessage, payload) {
+    console.log(`${name} is invalid: ${errorMessage}`);
+  },
+}
+```
+
+The `<One />` component also exposes an `invalidity` prop at the form level:
+
+```tsx
+<One
+  fields={fields}
+  handler={() => initialData}
+  invalidity={(name, errorMessage) => {
+    setIsFormValid(false);
+  }}
+/>
+```
+
+## Reflecting visible fields with `getAvailableFields`
+
+When fields are conditionally hidden, you may want to validate or export only the data that is currently visible. `getAvailableFields` returns the subset of fields whose `isVisible` predicate is currently truthy.
+
+```tsx
+import { getAvailableFields } from 'react-declarative';
+
+const visibleFields = getAvailableFields(fields, formData, payload);
+const fieldNames = visibleFields.map((f) => f.name);
+// use fieldNames to strip hidden fields before submitting
+```
+
+<Note>
+  `getAvailableFields` is purely a reflection utility — it does not render
+  anything. Use it at submit time to clean up data before sending it to your
+  API.
+</Note>

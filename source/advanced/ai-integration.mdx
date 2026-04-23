@@ -1,0 +1,308 @@
+---
+title: "Generating UI with AI using JSON schemas"
+description: "Generate react-declarative form schemas with AI tools. The JSON format is LLM-friendly — no state code needed. Includes sample prompts and reference schemas."
+---
+
+`react-declarative` is exceptionally well-suited for AI-assisted UI generation. The form schema is a plain JSON array of field objects—no JSX, no hooks, no state management code. Because `<One />` handles all state automatically, you never need to ask an AI to write `useState`, `useEffect`, or event handlers. You give the model a working example, describe what you want, and paste the output directly into the playground to verify it before using it in your app.
+
+## Try it in the playground first
+
+Before writing any code, try generating schemas at [react-declarative-playground.github.io](https://react-declarative-playground.github.io/). The playground runs entirely in the browser—paste a schema and see the rendered form immediately.
+
+<Tip>
+  The playground accepts the raw `fields` array. You do not need a full React component—just the JSON.
+</Tip>
+
+## Why LLMs work well with this format
+
+The `IField` / `TypedField` schema has properties that are self-describing:
+
+- `type` is a string enum (`FieldType.Text`, `FieldType.Combo`, etc.)—easy to enumerate in a prompt
+- `name` maps directly to a data field name—no wiring needed
+- `isVisible`, `isDisabled`, `isInvalid` are plain functions—LLMs write them naturally
+- Layout is expressed as `columns` strings (`"6"` = half-width)—no CSS to invent
+- Validation lives inside the schema, not in a separate schema file
+
+Because state management is automatic, the AI never needs to generate any React state code. The complete output is just a `TypedField[]` array.
+
+## The prompt workflow
+
+<Steps>
+  <Step title="Choose a reference sample">
+    Pick a sample schema from the list below that most closely resembles what you want to build. Copy the entire code block including the `import` line.
+  </Step>
+
+  <Step title="Open your preferred AI tool">
+    Any major LLM works. ChatGPT, Claude, Gemini, Copilot, and Perplexity all have enough knowledge of `react-declarative` to generate valid schemas.
+  </Step>
+
+  <Step title="Send the reference + your description">
+    Paste the sample code into the chat and add your request. A reliable prompt pattern:
+
+    ```text
+    Read the code below and generate a new form schema in the same format.
+    The form should collect: [describe your fields here].
+    
+    [paste the sample code]
+    ```
+  </Step>
+
+  <Step title="Verify in the playground">
+    Copy the generated `fields` array to [react-declarative-playground.github.io](https://react-declarative-playground.github.io/) and check the rendered output. Fix any issues by asking the AI to adjust.
+  </Step>
+
+  <Step title="Drop it into your app">
+    Once it looks right, import the fields array and pass it to `<One />`.
+
+    ```tsx
+    import { One } from "react-declarative";
+    import { fields } from "./generatedFields";
+
+    export const MyPage = () => (
+      <One
+        fields={fields}
+        handler={() => ({})}
+        onChange={(data) => console.log(data)}
+      />
+    );
+    ```
+  </Step>
+</Steps>
+
+## Reference samples
+
+These samples exist specifically as AI training material. Each one demonstrates a different combination of field types, layouts, and validation patterns.
+
+<AccordionGroup>
+  <Accordion title="order_info — multi-section form with date and combo fields">
+    A three-section form covering general information, passport details, and profile metadata. Demonstrates `FieldType.Paper` grouping, responsive column layout, and `FieldType.Date` / `FieldType.Combo` usage.
+
+    See [docs/sample/order_info.md](https://github.com/react-declarative/react-declarative/blob/master/docs/sample/order_info.md)
+  </Accordion>
+
+  <Accordion title="login_form — centered card with action feedback">
+    A sign-in form centered in the viewport using `FieldType.Box` and `FieldType.Paper`, with a `Subject`-driven loading state on the submit icon. Good reference for action-button patterns.
+
+    See [docs/sample/login_form.md](https://github.com/react-declarative/react-declarative/blob/master/docs/sample/login_form.md)
+  </Accordion>
+
+  <Accordion title="profile_card — avatar layout with nested groups">
+    A profile page with a CSS-grid avatar section, inline conditional fields, `FieldType.Expansion` for collapsible areas, and email validation. Demonstrates `FieldType.Component` for embedding arbitrary JSX.
+
+    See [docs/sample/profile_card.md](https://github.com/react-declarative/react-declarative/blob/master/docs/sample/profile_card.md)
+  </Accordion>
+
+  <Accordion title="settings_page — grouped settings with switches and sliders">
+    A settings page using `FieldType.Switch`, `FieldType.Slider`, `FieldType.Rating`, and `FieldType.Progress`. Good for AI to learn the full range of input types.
+
+    See [docs/sample/settings_page.md](https://github.com/react-declarative/react-declarative/blob/master/docs/sample/settings_page.md)
+  </Accordion>
+
+  <Accordion title="gallery_of_controls — one of every field type">
+    Every available `FieldType` in a single form. Use this sample when you want the AI to know the complete vocabulary of available field types.
+
+    See [docs/sample/gallery_of_controls.md](https://github.com/react-declarative/react-declarative/blob/master/docs/sample/gallery_of_controls.md)
+  </Accordion>
+
+  <Accordion title="typography — display-only content layouts">
+    Forms that combine `FieldType.Typography`, `FieldType.Line`, and `FieldType.Rating` to create read-only display panels. Good for dashboards and detail views.
+
+    See [docs/sample/typography.md](https://github.com/react-declarative/react-declarative/blob/master/docs/sample/typography.md)
+  </Accordion>
+
+  <Accordion title="product_shape — e-commerce product form">
+    A product entry form with price, SKU, category combo, stock toggle, and image URL. Demonstrates mixed outlined and standard field variants.
+
+    See [docs/sample/product_shape.md](https://github.com/react-declarative/react-declarative/blob/master/docs/sample/product_shape.md)
+  </Accordion>
+
+  <Accordion title="variant_form — conditional field visibility">
+    A form where fields appear and disappear based on other field values using `isVisible`. The best sample for showing the AI how conditional logic works.
+
+    See [docs/sample/variant_form.md](https://github.com/react-declarative/react-declarative/blob/master/docs/sample/variant_form.md)
+  </Accordion>
+
+  <Accordion title="adaptive_form — responsive multi-column layout">
+    A form that uses `desktopColumns`, `tabletColumns`, and `phoneColumns` on every field. Use this when you need the AI to generate a layout that works on multiple screen sizes.
+
+    See [docs/sample/adaptive_form.md](https://github.com/react-declarative/react-declarative/blob/master/docs/sample/adaptive_form.md)
+  </Accordion>
+
+  <Accordion title="dashboard — KPI cards and data display">
+    A read-only dashboard layout using nested `FieldType.Paper` and `FieldType.Group` containers with `FieldType.Component` cells. Good for report-style UIs.
+
+    See [docs/sample/dashboard.md](https://github.com/react-declarative/react-declarative/blob/master/docs/sample/dashboard.md)
+  </Accordion>
+
+  <Accordion title="account_info — account management form">
+    A full account settings page with personal details, password change, and notification preferences sections.
+
+    See [docs/sample/account_info.md](https://github.com/react-declarative/react-declarative/blob/master/docs/sample/account_info.md)
+  </Accordion>
+
+  <Accordion title="custom_jsx — arbitrary JSX inside a form">
+    Demonstrates `FieldType.Component` and `FieldType.Layout` for embedding completely custom React components inside a `<One />` form without breaking the state model.
+
+    See [docs/sample/custom_jsx.md](https://github.com/react-declarative/react-declarative/blob/master/docs/sample/custom_jsx.md)
+  </Accordion>
+</AccordionGroup>
+
+## Example: generating a registration form
+
+Here is a concrete prompt and the kind of output it produces.
+
+<CodeGroup>
+
+```text prompt
+Read the code below and generate a new form schema in the same format.
+
+The form should collect user registration data:
+- First name and last name (side by side, required)
+- Email address (with validation)
+- Password and confirm password (with match validation)
+- Date of birth
+- Country (dropdown: USA, UK, Canada, Australia)
+- Terms accepted (checkbox, required)
+
+Use FieldType.Paper to group related fields.
+Show validation errors only after the field has been touched.
+
+[paste the order_info.md code here]
+```
+
+```tsx generated output
+import { TypedField, FieldType } from "react-declarative";
+
+export const fields: TypedField[] = [
+  {
+    type: FieldType.Paper,
+    fieldBottomMargin: "1",
+    fields: [
+      {
+        type: FieldType.Typography,
+        typoVariant: "h6",
+        placeholder: "Personal Information",
+      },
+      {
+        type: FieldType.Text,
+        desktopColumns: "6",
+        tabletColumns: "6",
+        phoneColumns: "12",
+        outlined: true,
+        name: "firstName",
+        title: "First Name",
+        isInvalid: ({ firstName }) =>
+          !firstName ? "First name is required" : null,
+      },
+      {
+        type: FieldType.Text,
+        desktopColumns: "6",
+        tabletColumns: "6",
+        phoneColumns: "12",
+        outlined: true,
+        name: "lastName",
+        title: "Last Name",
+        isInvalid: ({ lastName }) =>
+          !lastName ? "Last name is required" : null,
+      },
+      {
+        type: FieldType.Text,
+        outlined: true,
+        name: "email",
+        title: "Email Address",
+        isInvalid: ({ email }) => {
+          const re = /^[\w-.]+@([\w-]+\.)+[\w-]{2,4}$/;
+          return re.test(email) ? null : "Enter a valid email address";
+        },
+      },
+      {
+        type: FieldType.Date,
+        outlined: true,
+        name: "dateOfBirth",
+        title: "Date of Birth",
+      },
+      {
+        type: FieldType.Combo,
+        outlined: true,
+        name: "country",
+        title: "Country",
+        itemList: ["USA", "UK", "Canada", "Australia"],
+      },
+    ],
+  },
+  {
+    type: FieldType.Paper,
+    fieldBottomMargin: "1",
+    fields: [
+      {
+        type: FieldType.Typography,
+        typoVariant: "h6",
+        placeholder: "Password",
+      },
+      {
+        type: FieldType.Text,
+        outlined: true,
+        name: "password",
+        title: "Password",
+        inputType: "password",
+        isInvalid: ({ password }) =>
+          password && password.length >= 8
+            ? null
+            : "Password must be at least 8 characters",
+      },
+      {
+        type: FieldType.Text,
+        outlined: true,
+        name: "confirmPassword",
+        title: "Confirm Password",
+        inputType: "password",
+        isInvalid: ({ password, confirmPassword }) =>
+          password === confirmPassword ? null : "Passwords do not match",
+      },
+      {
+        type: FieldType.CheckBox,
+        name: "termsAccepted",
+        title: "I accept the terms and conditions",
+        isInvalid: ({ termsAccepted }) =>
+          termsAccepted ? null : "You must accept the terms",
+      },
+    ],
+  },
+];
+```
+
+</CodeGroup>
+
+<Note>
+  The AI does not need to write any `useState`, `useEffect`, or form submission logic. `<One />` manages state automatically. You only add an `onChange` handler to collect the final data object.
+</Note>
+
+## Tips for better AI output
+
+<AccordionGroup>
+  <Accordion title="Include the import line in your sample">
+    LLMs use the import statement to confirm the library name and available exports. Always include `import { TypedField, FieldType } from "react-declarative"` in the sample you provide.
+  </Accordion>
+  <Accordion title="Ask for validation in isInvalid, not external logic">
+    Prompt the AI to put validation inside `isInvalid` callbacks rather than in a separate validation function. The callback approach keeps the schema self-contained and runnable in the playground.
+  </Accordion>
+  <Accordion title="Specify responsive breakpoints explicitly">
+    Ask for `desktopColumns`, `tabletColumns`, and `phoneColumns` on each field if you need multi-column layouts. Otherwise the AI may default to full-width on all breakpoints.
+  </Accordion>
+  <Accordion title="Use the gallery_of_controls sample for unfamiliar field types">
+    If you need a field type you haven't used before (e.g., `FieldType.Tree` or `FieldType.Dict`), include the gallery sample in your prompt so the AI has a concrete example to follow.
+  </Accordion>
+  <Accordion title="Iterate in the playground, not in your editor">
+    Paste each AI output into [react-declarative-playground.github.io](https://react-declarative-playground.github.io/) before copying it to your codebase. The playground catches schema errors instantly without requiring a build step.
+  </Accordion>
+</AccordionGroup>
+
+## Setting up a local AI knowledge base
+
+For teams, you can build an offline Q&A knowledge base from the `react-declarative` documentation using [GPT4All](https://www.nomic.ai/gpt4all) and its LocalDocs feature. Clone the repository, point LocalDocs at the `docs/` folder, and the model can answer questions grounded in the actual source documentation.
+
+```bash
+git clone https://github.com/react-declarative/react-declarative.git
+```
+
+Then open GPT4All, create a new LocalDocs collection pointing at the cloned `docs/` folder, and attach it to any chat session. This is useful for onboarding and for answering questions about less common API surface area that public LLMs may not have seen in training.

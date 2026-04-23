@@ -1,0 +1,246 @@
+---
+title: "KanbanView: real-time drag-and-drop board component"
+description: "Build kanban boards with typed IBoardColumn and IBoardRow configs, drag-and-drop card movement, onChangeColumn callbacks, and real-time reloadSubject support."
+---
+
+`<KanbanView />` turns a flat list of items and a column configuration into a full kanban board. Cards are draggable between columns; when a card moves, `onChangeColumn` fires so you can persist the change to your backend. The component supports real-time updates through a `reloadSubject` observable and can render arbitrary per-card detail rows defined in `IBoardRow[]`.
+
+## Installation
+
+```bash
+npm install --save react-declarative tss-react @mui/material @emotion/react @emotion/styled
+```
+
+## Complete example
+
+```tsx kanban-example.tsx
+import {
+  KanbanView,
+  IBoardColumn,
+  IBoardRow,
+  IBoardItem,
+} from 'react-declarative';
+
+// Shape of each card's data
+interface ILeadRow {
+  first_name: string;
+  last_name: string;
+  email: string;
+  phone: string;
+  hire_date: string;
+}
+
+// Column type — a union of valid column identifiers
+type LeadColumn = 'cold' | 'contact' | 'draft' | 'deal';
+
+// Rows define what to display inside each card
+const rows: IBoardRow<ILeadRow>[] = [
+  {
+    label: 'Display name',
+    value: (id, employee) =>
+      [employee.first_name, employee.last_name].join(' '),
+  },
+  {
+    label: 'Email',
+    value: (id, employee) => employee.email,
+    click: (id, data, payload) => payload.openPreview(id),
+  },
+  {
+    label: 'Phone',
+    value: (id, employee) => employee.phone,
+  },
+  {
+    label: 'Hire date',
+    value: (id, employee) => employee.hire_date,
+  },
+];
+
+// Columns define the board lanes
+const columns: IBoardColumn<ILeadRow, {}, LeadColumn>[] = [
+  { color: '#00ACC1', column: 'cold',    label: 'Cold',      rows },
+  { color: '#9C27B0', column: 'contact', label: 'Contact',   rows },
+  { color: '#FFA000', column: 'draft',   label: 'Draft',     rows },
+  { color: '#2E7D32', column: 'deal',    label: 'In a deal', rows },
+];
+
+// items is the flat list of cards
+const items: IBoardItem<ILeadRow, {}, LeadColumn>[] = [
+  {
+    id: 'lead-1',
+    column: 'cold',
+    data: {
+      first_name: 'Alice',
+      last_name: 'Smith',
+      email: 'alice@example.com',
+      phone: '+1 555 0100',
+      hire_date: '2024-01-15',
+    },
+  },
+  {
+    id: 'lead-2',
+    column: 'contact',
+    data: {
+      first_name: 'Bob',
+      last_name: 'Jones',
+      email: 'bob@example.com',
+      phone: '+1 555 0101',
+      hire_date: '2024-02-20',
+    },
+  },
+];
+
+export const LeadsKanban = () => {
+  const handleChangeColumn = async (
+    id: string,
+    column: LeadColumn,
+    data: ILeadRow,
+  ) => {
+    // Persist the move to your backend
+    await fetch(`/api/leads/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status: column }),
+    });
+  };
+
+  return (
+    <KanbanView<ILeadRow, {}, LeadColumn>
+      sx={{ height: 'calc(100vh - 145px)' }}
+      columns={columns}
+      items={items}
+      onChangeColumn={handleChangeColumn}
+    />
+  );
+};
+```
+
+## Key props
+
+<ParamField path="columns" type="IBoardColumn<Data, Payload, ColumnType>[]" required>
+  Defines the board lanes. Each column has a `column` identifier (the value
+  stored on each item to indicate which lane it belongs to), an optional
+  `label`, an optional `color` (used for the column header accent), and a
+  `rows` array that controls which fields are shown inside every card in that
+  lane.
+</ParamField>
+
+<ParamField path="items" type="IBoardItem<Data, Payload, ColumnType>[]" required>
+  The flat list of cards to display. Each item has an `id`, a `column` value
+  (must match one of the `column` identifiers in your `columns` array), and a
+  `data` object of type `Data`.
+</ParamField>
+
+<ParamField path="onChangeColumn" type="(id: string, column: ColumnType, data: Data, payload: any) => void | Promise<void>">
+  Called every time a card is dragged to a different column. `id` is the card's
+  id, `column` is the destination column identifier. Use this callback to
+  persist the move.
+</ParamField>
+
+<ParamField path="payload" type="Payload | (() => Payload)">
+  Arbitrary data forwarded to every `IBoardRow.value`, `IBoardRow.click`, and
+  `IBoardRow.visible` callback. Use it to carry service references or user
+  context.
+</ParamField>
+
+<ParamField path="reloadSubject" type="TSubject<void>">
+  An observable subject. Emit `void` on it to force the board to re-fetch and
+  re-render all cards. Use this for real-time updates via WebSocket.
+</ParamField>
+
+<ParamField path="onDataRequest" type="(initial: boolean) => void">
+  Called when the board mounts (`initial = true`) and whenever it needs fresh
+  data. Pair with `reloadSubject` to implement a push-based real-time flow.
+</ParamField>
+
+<ParamField path="cardLabel" type="React.ReactNode | ((id, data, payload) => React.ReactNode | Promise<React.ReactNode>)">
+  Custom label rendered at the top of each card. Falls back to the item's `id`
+  when not provided.
+</ParamField>
+
+<ParamField path="disabled" type="boolean">
+  Prevents all drag-and-drop interactions when `true`.
+</ParamField>
+
+<ParamField path="sx" type="SxProps">
+  MUI system styles applied to the board root. Set a fixed height to enable
+  scrolling within columns, e.g. `sx={{ height: 'calc(100vh - 64px)' }}`.
+</ParamField>
+
+## Card row definition (`IBoardRow`)
+
+Each entry in the `rows` array of a column controls one line inside every card:
+
+```tsx board-row.tsx
+import { IBoardRow } from 'react-declarative';
+
+interface ILead {
+  name: string;
+  priority: 'high' | 'low';
+}
+
+const rows: IBoardRow<ILead>[] = [
+  {
+    label: 'Name',
+    // value receives (cardId, data, payload) — can be async
+    value: (id, lead) => lead.name,
+  },
+  {
+    label: 'Priority',
+    value: (id, lead) => lead.priority.toUpperCase(),
+    // visible controls whether this row renders at all
+    visible: (id, lead) => lead.priority === 'high',
+    // click makes the row interactive
+    click: (id, lead, payload) => payload.openDetail(id),
+  },
+];
+```
+
+## Color coding per column
+
+Set the `color` field on each column definition to apply a colored accent to
+the column header. Any valid CSS color string works:
+
+```tsx color-coding.tsx
+const columns: IBoardColumn[] = [
+  { column: 'todo',       label: 'To Do',       color: '#1976d2', rows },
+  { column: 'in_progress', label: 'In Progress', color: '#f57c00', rows },
+  { column: 'done',       label: 'Done',        color: '#388e3c', rows },
+];
+```
+
+## Real-time support
+
+Connect a WebSocket or server-sent events stream and call `reload()` whenever
+the backend pushes a change. Use `reloadSubject` to trigger a re-render from
+outside the component:
+
+```tsx realtime-kanban.tsx
+import { KanbanView, useSubject } from 'react-declarative';
+
+export const RealtimeBoard = () => {
+  const reloadSubject = useSubject<void>();
+
+  React.useEffect(() => {
+    const ws = new WebSocket('wss://api.example.com/leads/stream');
+    ws.onmessage = () => {
+      // Trigger board refresh on any incoming message
+      reloadSubject.next();
+    };
+    return () => ws.close();
+  }, []);
+
+  return (
+    <KanbanView
+      columns={columns}
+      items={items}
+      reloadSubject={reloadSubject}
+      onChangeColumn={handleChangeColumn}
+    />
+  );
+};
+```
+
+<Tip>
+  For high-frequency updates, debounce emissions on `reloadSubject` to avoid
+  excessive re-renders. The `useQueuedAction` hook from react-declarative
+  can help serialise incoming WebSocket messages before calling reload.
+</Tip>

@@ -1,0 +1,262 @@
+---
+title: "List component props: columns, handler, actions reference"
+description: "Full props reference for the List data grid in react-declarative: handler, columns, filters, actions, chips, rowActions, pagination flags, and callbacks."
+---
+
+`List` is a batteries-included data grid component. You supply a `handler` function that receives the current filter state, pagination, sort model, chip toggles, and search string, then returns a page of rows. `List` handles the rest: rendering columns, paginating results, collecting filter form values via a `One`-compatible `filters` schema, and wiring up toolbar actions and per-row menus. The component is generic over `FilterData` (filter form shape), `RowData` (row object shape), and `Payload` (extra context).
+
+```tsx
+import { List, FieldType, ColumnType } from "react-declarative";
+
+interface IFilters {
+  status: string;
+}
+
+interface IRow {
+  id: string;
+  name: string;
+  status: string;
+  createdAt: string;
+}
+
+export default function UserList() {
+  return (
+    <List<IFilters, IRow>
+      handler={async (filterData, pagination, sort, chips, search) => {
+        const res = await fetch(
+          `/api/users?page=${pagination.offset / pagination.limit}&q=${search}`
+        );
+        const { rows, total } = await res.json();
+        return { rows, total };
+      }}
+      columns={[
+        { type: ColumnType.Text, field: "name", headerName: "Name", width: "auto" },
+        { type: ColumnType.Text, field: "status", headerName: "Status", width: "120px" },
+        { type: ColumnType.Text, field: "createdAt", headerName: "Created", width: "180px" },
+      ]}
+      filters={[
+        { type: FieldType.Text, name: "status", title: "Status" },
+      ]}
+      withSearch
+    />
+  );
+}
+```
+
+## Data
+
+<ParamField path="handler" type="ListHandler<FilterData, RowData, Payload>" required>
+  The data-fetching function. Receives `(filterData, pagination, sort, chips, search, payload)` and must return either `RowData[]` (total assumed unknown) or `{ rows: RowData[], total: number | null }`. Can be async. You can also pass a static `RowData[]` array for client-side-only lists.
+</ParamField>
+
+<ParamField path="columns" type="IColumn<FilterData, RowData, Payload>[]" required>
+  Column definitions. Each entry describes one visible column in the grid. See the [IColumn fields](#icolumn-fields) section below.
+</ParamField>
+
+<ParamField path="filters" type="Field[]">
+  Field schema (same format as `One`'s `fields` prop) used to render the filter panel. When the user submits the filter form, `handler` is re-called with the new `filterData`.
+</ParamField>
+
+<ParamField path="payload" type="Payload | (() => Payload)">
+  Arbitrary context forwarded to `handler`, column `compute` callbacks, action visibility checks, and filter field callbacks. Use it for user identity, tenant IDs, or other cross-cutting values.
+</ParamField>
+
+<ParamField path="filterData" type="Partial<FilterData>">
+  Pre-populate the filter form with specific values on first render.
+</ParamField>
+
+<ParamField path="selectedRows" type="RowId[]">
+  Controlled selection state. Pass an array of row IDs to externally control which rows appear selected.
+</ParamField>
+
+<ParamField path="sortModel" type="IListSortItem<RowData>[]">
+  Initial sort model applied when the list first renders. Each item is `{ field: keyof RowData, sort: 'asc' | 'desc' }`.
+</ParamField>
+
+<ParamField path="chipData" type="Partial<Record<keyof RowData, boolean>>">
+  Initial enabled/disabled state of each chip toggle. Keys are `RowData` field names; values are booleans.
+</ParamField>
+
+<ParamField path="search" type="string">
+  Pre-populate the search box with a string value on first render.
+</ParamField>
+
+## Columns (`IColumn`)
+
+<ParamField path="type" type="ColumnType" required>
+  Rendering strategy for the column. Common values: `ColumnType.Text`, `ColumnType.Action`, `ColumnType.CheckBox`, `ColumnType.Component`.
+</ParamField>
+
+<ParamField path="field" type="string">
+  Key in `RowData` whose value this column displays. Omit when the column content is fully derived via `compute` or `element`.
+</ParamField>
+
+<ParamField path="headerName" type="string">
+  Column header label shown in the grid header row.
+</ParamField>
+
+<ParamField path="width" type="string | ((containerWidth: number) => string | number)" required>
+  Column width. Pass a CSS string such as `"200px"` or `"auto"`, or a function that receives the grid container width and returns a value.
+</ParamField>
+
+<ParamField path="sortable" type="boolean">
+  When `true`, clicking the column header cycles through ascending / descending sort. The active sort is passed to `handler` on every re-fetch.
+</ParamField>
+
+<ParamField path="compute" type="(row: RowData & { _payload: Payload }, payload: Payload) => Promise<Value> | Value">
+  Derive the displayed value from the row instead of reading `field` directly. Runs for every visible row on each render. Can be async.
+</ParamField>
+
+<ParamField path="element" type="React.ComponentType<RowData & { _payload: Payload }>">
+  Replace the default cell renderer with your own React component. The component receives the full row object plus `_payload`.
+</ParamField>
+
+<ParamField path="columnMenu" type="IListActionOption[]">
+  Per-column action menu items. Each item has `label`, `action`, optional `icon`, and optional `isVisible`/`isDisabled` callbacks that receive `selectedRows` and `payload`.
+</ParamField>
+
+<ParamField path="isVisible" type="(params: { filterData, pagination, sortModel, chips, search, payload }) => boolean">
+  Conditionally hide the entire column based on the current list state. Called with the same params as `handler`.
+</ParamField>
+
+<ParamField path="primary" type="boolean">
+  Marks the column as the primary identifier column, used for mobile layout prioritisation.
+</ParamField>
+
+<ParamField path="phoneHidden" type="boolean">
+  When `true`, this column is hidden on phone-sized viewports.
+</ParamField>
+
+<ParamField path="tabletHidden" type="boolean">
+  When `true`, this column is hidden on tablet-sized viewports.
+</ParamField>
+
+## Actions and operations
+
+<ParamField path="actions" type="IListAction<RowData, Payload>[]">
+  Toolbar-level action buttons rendered above the grid. Each action has a `type` (`ActionType`), optional `label`, optional `icon`, and optional `options` array for dropdown sub-actions. `isVisible` and `isDisabled` receive the current `selectedRows` and `payload`.
+</ParamField>
+
+<ParamField path="operations" type="IListOperation<RowData, Payload>[]">
+  Bulk operations shown when one or more rows are selected. Rendered in the selection toolbar.
+</ParamField>
+
+<ParamField path="rowActions" type="IListRowAction[]">
+  Per-row action menu items accessible through a context menu icon on each row. Each item specifies a `label`, `action` string, and optional visibility/disabled predicates.
+</ParamField>
+
+<ParamField path="chips" type="IListChip<RowData>[]">
+  Quick-filter chip toggles rendered above the grid. Each chip has `name` (a `keyof RowData`), `label`, optional `color`, and an `enabled` default. Active chips are passed to `handler` as a `Record<keyof RowData, boolean>`.
+</ParamField>
+
+## Callbacks
+
+<ParamField path="onRowClick" type="(row: RowData, reload: (keepPagination?: boolean) => Promise<void>) => void">
+  Called when the user clicks anywhere on a row. The second argument is a `reload` function you can call to refresh the list without navigating away.
+</ParamField>
+
+<ParamField path="onAction" type="(action: string, selectedRows: RowData[], reload: ReloadFn) => void">
+  Called when a toolbar action is triggered. `action` is the string identifier from the action definition.
+</ParamField>
+
+<ParamField path="onRowAction" type="(action: string, row: RowData, reload: ReloadFn) => void">
+  Called when a per-row action menu item is activated. `action` is the item's `action` string.
+</ParamField>
+
+<ParamField path="onOperation" type="(action: string, selectedRows: RowData[], isAll: boolean, reload: ReloadFn) => void">
+  Called when a bulk operation is triggered. `isAll` is `true` when the user selected all rows across all pages.
+</ParamField>
+
+<ParamField path="onSelectedRows" type="(rowIds: RowId[], initialChange: boolean) => void">
+  Called when the selection changes. `initialChange` is `true` for the event fired on mount.
+</ParamField>
+
+<ParamField path="onFilterChange" type="(data: FilterData) => void">
+  Called whenever the filter form values change.
+</ParamField>
+
+<ParamField path="onSearchChange" type="(search: string) => void">
+  Called whenever the search box value changes.
+</ParamField>
+
+<ParamField path="onSortModelChange" type="(sort: IListSortItem<RowData>[]) => void">
+  Called when the sort model changes (e.g. the user clicks a sortable column header).
+</ParamField>
+
+<ParamField path="onRows" type="(rows: RowData[]) => void">
+  Called after each successful data load with the full array of currently displayed rows.
+</ParamField>
+
+<ParamField path="fallback" type="(e: Error) => void">
+  Called if `handler` rejects. Use it to display an error message.
+</ParamField>
+
+<ParamField path="onLoadStart" type="(source: string) => void">
+  Called when a data fetch begins.
+</ParamField>
+
+<ParamField path="onLoadEnd" type="(isOk: boolean, source: string) => void">
+  Called when a data fetch completes. `isOk` is `false` on error.
+</ParamField>
+
+## Flags
+
+<ParamField path="withSearch" type="boolean">
+  Show a search input in the toolbar. The current search string is passed to `handler` on every re-fetch.
+</ParamField>
+
+<ParamField path="withMobile" type="boolean">
+  Enable the responsive mobile layout, which reorders and hides columns according to each column's `phoneOrder` and `phoneHidden` settings.
+</ParamField>
+
+<ParamField path="withArrowPagination" type="boolean">
+  Replace the default page-number pagination controls with simple previous/next arrow buttons.
+</ParamField>
+
+<ParamField path="withRangePagination" type="boolean">
+  Show a page range selector alongside the arrow controls.
+</ParamField>
+
+<ParamField path="withSingleSort" type="boolean">
+  Restrict sorting to a single column at a time, clearing any existing sort when the user clicks a new column header.
+</ParamField>
+
+<ParamField path="withSelectOnRowClick" type="boolean">
+  Toggle row selection when the user clicks a row body (in addition to clicking the checkbox).
+</ParamField>
+
+<ParamField path="withToggledFilters" type="boolean">
+  Start with the filter panel collapsed. The user can expand it via a toolbar toggle button.
+</ParamField>
+
+<ParamField path="selectionMode" type="SelectionMode">
+  Controls how rows can be selected. Typical values: `SelectionMode.None`, `SelectionMode.Single`, `SelectionMode.Multiple`.
+</ParamField>
+
+## Pagination and limits
+
+<ParamField path="limit" type="number">
+  Initial page size (number of rows per page). Defaults to the first entry in `rowsPerPage`.
+</ParamField>
+
+<ParamField path="page" type="number">
+  Initial page index (zero-based).
+</ParamField>
+
+<ParamField path="rowsPerPage" type="Array<number | { value: number; label: string }>">
+  Options shown in the rows-per-page selector. Pass plain numbers or `{ value, label }` objects for custom labels.
+</ParamField>
+
+## Subjects (reactive control)
+
+<ParamField path="reloadSubject" type="TSubject<void>">
+  Emit on this subject to trigger a fresh `handler` call programmatically without unmounting the component.
+</ParamField>
+
+<ParamField path="rerenderSubject" type="TSubject<void>">
+  Emit to force a visual re-render without re-fetching data.
+</ParamField>
+
+<ParamField path="setFilterDataSubject" type="TSubject<FilterData>">
+  Emit a `FilterData` object to programmatically update the filter form values and re-fetch.
+</ParamField>

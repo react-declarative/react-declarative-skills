@@ -1,0 +1,295 @@
+---
+title: "Collection hooks: useCollection, useModel, useEntity"
+description: "API reference for MVVM state hooks in react-declarative: useCollection for observable arrays, useModel for single objects, and useEntity for id-bearing records."
+---
+
+Collection hooks give you fine-grained, observable reactive state built on the MVVM pattern. Rather than replacing a full state array on every change, these hooks operate on internal `Collection`, `Model`, and `Entity` instances and only trigger re-renders when the underlying data actually changes. All mutation methods are async and wait for the component to be mounted and subscribed before applying changes, preventing race conditions during React 18's concurrent rendering.
+
+## useCollection
+
+Creates and manages a **reactive, observable array** of entities. Each entity in the collection must have a unique `id` field. The hook returns a `CollectionAdapter` with methods for adding, updating, removing, finding, and iterating items. Changes to the collection trigger an `onChange` callback and re-render only the components that actually use the changed data.
+
+### Signature
+
+```ts
+interface IEntity {
+  id: string | number;
+}
+
+function useCollection<T extends IEntity>(options?: {
+  initialValue?: T[] | (() => T[]) | Entity<T>[] | Collection<T>;
+  onChange?: (collection: CollectionAdapter<T>, target: CollectionEntityAdapter<T> | null) => void;
+  debounce?: number;
+}): CollectionAdapter<T>
+```
+
+### Parameters
+
+<ParamField path="options.initialValue" type="T[] | (() => T[]) | Collection<T>" default="[]">
+  The starting data for the collection. Accepts a plain array, a factory function, or an existing `Collection` instance.
+</ParamField>
+
+<ParamField path="options.onChange" type="(collection, target) => void">
+  Called whenever the collection changes. `collection` is the current `CollectionAdapter`; `target` is the `CollectionEntityAdapter` for the specific entity that changed, or `null` for bulk operations.
+</ParamField>
+
+<ParamField path="options.debounce" type="number">
+  Debounce delay in milliseconds for batching rapid successive changes before triggering a re-render. Defaults to the library's `CHANGE_DEBOUNCE` constant.
+</ParamField>
+
+### CollectionAdapter methods
+
+The object returned by `useCollection` is a `CollectionAdapter<T>` with the following API:
+
+| Method / Property | Signature | Description |
+|---|---|---|
+| `ids` | `(string \| number)[]` | Array of all entity IDs in insertion order. |
+| `isEmpty` | `boolean` | `true` when the collection has no items. |
+| `push` | `(...items: T[] \| T[][]) => Promise<void>` | Appends one or more new entities. |
+| `upsert` | `(...items: T[] \| T[][]) => Promise<void>` | Inserts entities that don't exist yet; updates those that do (matched by `id`). |
+| `remove` | `(entity: IEntity) => Promise<void>` | Removes a specific entity object. |
+| `removeById` | `(id: string \| number) => Promise<void>` | Removes an entity by ID. |
+| `removeAll` | `() => Promise<void>` | Removes every entity. |
+| `clear` | `() => Promise<void>` | Clears the collection (same as `removeAll`). |
+| `setData` | `(items: T[]) => Promise<void>` | Replaces the entire collection with a new array. |
+| `findById` | `(id) => CollectionEntityAdapter<T>` | Returns a reactive adapter for a specific entity. |
+| `find` | `(fn) => CollectionEntityAdapter<T> \| undefined` | Array-style `find`. |
+| `filter` | `(fn) => CollectionEntityAdapter<T>[]` | Array-style `filter`. |
+| `map` | `<V>(fn) => V[]` | Array-style `map`. |
+| `some` | `(fn) => boolean` | Array-style `some`. |
+| `forEach` | `(fn) => void` | Array-style `forEach`. |
+| `toArray` | `() => T[]` | Returns a plain snapshot of all entity data. |
+| `refresh` | `() => Promise<void>` | Forces a re-render of subscribers without changing data. |
+
+Each item yielded by `find`, `filter`, `map`, and `forEach` is a `CollectionEntityAdapter<T>` exposing:
+- `id` — the entity's ID
+- `data` — current data snapshot
+- `setData(partial | fn)` — update just this entity's fields
+- `toObject()` — plain object snapshot
+- `refresh()` — force a re-render for this entity
+
+### Usage
+
+```tsx
+import { useCollection } from 'react-declarative';
+
+interface Counter {
+  id: string;
+  name: string;
+  value: number;
+}
+
+function CounterList() {
+  const collection = useCollection<Counter>({
+    onChange: (collection, target) =>
+      console.log('changed', { collection, target }),
+    initialValue: [],
+  });
+
+  const handleAdd = async () => {
+    const { id, ...data } = await fetchApi('/api/v1/counters/create', {
+      method: 'POST',
+    });
+    await collection.push({ id, ...data });
+  };
+
+  const handleUpsert = async () => {
+    const updatedItems = await fetchApi('/api/v1/counters/list');
+    await collection.upsert(updatedItems);
+  };
+
+  const handleRemove = async (id: string) => {
+    await collection.removeById(id);
+  };
+
+  return (
+    <>
+      <button onClick={handleAdd}>Add item</button>
+      <button onClick={handleUpsert}>Sync from server</button>
+      <ul>
+        {collection.map((entity) => (
+          <li key={entity.id}>
+            {entity.data.name}: {entity.data.value}
+            <button onClick={() => handleRemove(String(entity.id))}>
+              Remove
+            </button>
+          </li>
+        ))}
+      </ul>
+    </>
+  );
+}
+```
+
+### Entity-level updates
+
+You can update a specific entity without replacing the whole collection:
+
+```tsx
+const entity = collection.findById(targetId);
+
+// Merge a partial update
+await entity.setData({ value: entity.data.value + 1 });
+
+// Or use a function for safe increments
+await entity.setData((prev) => ({ value: prev.value + 1 }));
+```
+
+---
+
+## useModel
+
+Creates and manages a **single reactive object**. When you call `setData` on the returned `ModelAdapter`, the component re-renders with the new state and `onChange` is called. Use this for form state, page-level settings, or any single plain object you want to observe reactively.
+
+### Signature
+
+```ts
+function useModel<T extends {}>(options: {
+  initialValue: T | Model<T> | (() => T);
+  onChange?: (model: ModelAdapter<T>) => void;
+  debounce?: number;
+}): ModelAdapter<T>
+```
+
+### Parameters
+
+<ParamField path="options.initialValue" type="T | Model<T> | (() => T)" required>
+  Starting value for the model. Accepts a plain object, factory function, or an existing `Model` instance.
+</ParamField>
+
+<ParamField path="options.onChange" type="(model: ModelAdapter<T>) => void">
+  Called whenever the model data changes.
+</ParamField>
+
+<ParamField path="options.debounce" type="number">
+  Debounce delay in milliseconds before triggering a re-render after a change. Defaults to `CHANGE_DEBOUNCE`.
+</ParamField>
+
+### ModelAdapter methods
+
+| Method / Property | Signature | Description |
+|---|---|---|
+| `data` | `T` | Current data snapshot. |
+| `setData` | `(partial \| fn) => Promise<void>` | Merges a partial update or applies a function that receives the previous state and returns a partial. |
+| `refresh` | `() => Promise<void>` | Forces a re-render without changing data. |
+| `toObject` | `() => T` | Returns a plain object snapshot of the current data. |
+| `toModel` | `() => Model<T>` | Returns the underlying `Model` instance. |
+
+### Usage
+
+```tsx
+import { useModel } from 'react-declarative';
+
+interface FilterState {
+  search: string;
+  status: 'all' | 'active' | 'archived';
+  page: number;
+}
+
+function FilterBar() {
+  const model = useModel<FilterState>({
+    initialValue: { search: '', status: 'all', page: 1 },
+    onChange: (m) => fetchResults(m.data),
+  });
+
+  return (
+    <div>
+      <input
+        value={model.data.search}
+        onChange={(e) => model.setData({ search: e.target.value, page: 1 })}
+        placeholder="Search…"
+      />
+      <select
+        value={model.data.status}
+        onChange={(e) =>
+          model.setData({ status: e.target.value as FilterState['status'], page: 1 })
+        }
+      >
+        <option value="all">All</option>
+        <option value="active">Active</option>
+        <option value="archived">Archived</option>
+      </select>
+    </div>
+  );
+}
+```
+
+---
+
+## useEntity
+
+Creates and manages a **single reactive entity** — like `useModel` but designed for records that carry an `id` field. The returned `EntityAdapter` exposes the `id` getter alongside the standard `data` and `setData` API, making it the right choice when the thing you're observing is a database record or any named, identifiable object.
+
+### Signature
+
+```ts
+interface IEntity {
+  id: string | number;
+}
+
+function useEntity<T extends IEntity>(options: {
+  initialValue: T | Entity<T> | (() => T);
+  onChange?: (entity: EntityAdapter<T>) => void;
+  debounce?: number;
+}): EntityAdapter<T>
+```
+
+### Parameters
+
+<ParamField path="options.initialValue" type="T | Entity<T> | (() => T)" required>
+  Starting value. Must include an `id` field.
+</ParamField>
+
+<ParamField path="options.onChange" type="(entity: EntityAdapter<T>) => void">
+  Called whenever the entity data changes.
+</ParamField>
+
+<ParamField path="options.debounce" type="number">
+  Debounce delay in milliseconds. Defaults to `CHANGE_DEBOUNCE`.
+</ParamField>
+
+### EntityAdapter methods
+
+| Method / Property | Signature | Description |
+|---|---|---|
+| `id` | `string \| number` | The entity's ID. |
+| `data` | `T` | Current data snapshot. |
+| `setData` | `(partial \| fn) => Promise<void>` | Merges a partial update or applies a functional update. |
+| `refresh` | `() => Promise<void>` | Forces a re-render without changing data. |
+| `toObject` | `() => T` | Returns a plain object snapshot. |
+| `toEntity` | `() => Entity<T>` | Returns the underlying `Entity` instance. |
+
+### Usage
+
+```tsx
+import { useEntity } from 'react-declarative';
+
+interface Product {
+  id: string;
+  name: string;
+  price: number;
+  inStock: boolean;
+}
+
+function ProductCard({ initial }: { initial: Product }) {
+  const entity = useEntity<Product>({
+    initialValue: initial,
+    onChange: (e) => api.saveProduct(e.toObject()),
+  });
+
+  return (
+    <div>
+      <h2>{entity.data.name}</h2>
+      <p>${entity.data.price}</p>
+      <label>
+        <input
+          type="checkbox"
+          checked={entity.data.inStock}
+          onChange={(e) => entity.setData({ inStock: e.target.checked })}
+        />
+        In stock
+      </label>
+    </div>
+  );
+}
+```

@@ -1,0 +1,252 @@
+---
+title: "Scaffold2: config-driven Material Design app shell"
+description: "Build a full Material Design app shell from IScaffold2Group config arrays. Supports async visibility guards, tabs, nested menus, and slot components."
+---
+
+`<Scaffold2 />` implements the Material Design app shell pattern — the top app bar, collapsible side navigation drawer, and content area — entirely from a configuration array. You declare groups and menu items as plain objects, attach async visibility and disabled guards, and let the component wire up the chrome. Your page content goes in as `children`. `Scaffold3` is a newer variant with an updated visual style; the configuration API is identical.
+
+## Installation
+
+```bash
+npm install --save react-declarative tss-react @mui/material @emotion/react @emotion/styled
+```
+
+## Basic setup
+
+<Steps>
+  <Step title="Define your navigation groups">
+    Create an `IScaffold2Group[]` array. Each group has an `id`, an optional
+    `label`, and a `children` array of `IScaffold2Option` items.
+
+    ```tsx navigation.ts
+    import {
+      IScaffold2Group,
+      IScaffold2Option,
+    } from 'react-declarative';
+    import PeopleIcon from '@mui/icons-material/People';
+    import DnsIcon from '@mui/icons-material/Dns';
+    import PublicIcon from '@mui/icons-material/Public';
+
+    export const options: IScaffold2Group[] = [
+      {
+        id: 'build',
+        label: 'Build',
+        children: [
+          {
+            id: 'authentication',
+            label: 'Authentication',
+            icon: PeopleIcon,
+            isVisible: async () => await authService.hasRole('admin'),
+          },
+          {
+            id: 'database',
+            label: 'Database',
+            icon: DnsIcon,
+          },
+          {
+            id: 'hosting',
+            label: 'Hosting',
+            icon: PublicIcon,
+            isDisabled: async () => await maintenanceGuard(),
+          },
+        ],
+      },
+      {
+        id: 'release',
+        label: 'Release',
+        children: [
+          {
+            id: 'analytics',
+            label: 'Analytics',
+          },
+        ],
+      },
+    ];
+    ```
+  </Step>
+
+  <Step title="Render Scaffold2 with your options">
+    Pass `options`, `activeOptionPath` (the currently selected item id chain),
+    and your page content as `children`.
+
+    ```tsx App.tsx
+    import { Scaffold2 } from 'react-declarative';
+    import { options } from './navigation';
+
+    export const App = () => {
+      const [activePath, setActivePath] = React.useState('build.authentication');
+
+      return (
+        <Scaffold2
+          appName="My App"
+          options={options}
+          activeOptionPath={activePath}
+          onOptionClick={(path, id) => {
+            setActivePath(path);
+            router.navigate(`/${id}`);
+          }}
+        >
+          {/* your routed page content */}
+          <Outlet />
+        </Scaffold2>
+      );
+    };
+    ```
+  </Step>
+</Steps>
+
+## Key props
+
+<ParamField path="options" type="IScaffold2Group[]" required>
+  The full navigation tree. Groups contain options; options can nest further
+  options and declare tabs.
+</ParamField>
+
+<ParamField path="activeOptionPath" type="string" required>
+  A dot-separated path that identifies the currently highlighted menu item,
+  e.g. `"build.authentication"`. The Scaffold highlights the matching item in
+  the side drawer.
+</ParamField>
+
+<ParamField path="activeTabPath" type="string">
+  Identifies the active tab within the current option, e.g. `"tab1"`. Tabs are
+  rendered in the top app bar.
+</ParamField>
+
+<ParamField path="appName" type="string">
+  The application name shown in the top app bar. Defaults to `"Scaffold2"`.
+</ParamField>
+
+<ParamField path="noSearch" type="boolean">
+  Hides the search box in the side drawer when `true`.
+</ParamField>
+
+<ParamField path="noAppName" type="boolean">
+  Hides the app name from the top bar.
+</ParamField>
+
+<ParamField path="payload" type="T">
+  An arbitrary object forwarded to every `isVisible` and `isDisabled` callback
+  on options and tabs. Use it to pass the current user session.
+</ParamField>
+
+<ParamField path="onOptionClick" type="(path: string, id: string) => void | boolean">
+  Called when the user clicks a menu item. `path` is the dot-joined ancestor
+  chain; `id` is the clicked option's own `id`. Return `false` to prevent the
+  default highlight update.
+</ParamField>
+
+<ParamField path="onTabChange" type="(path: string, tab: string, id: string) => void">
+  Called when the user switches between tabs in the top bar.
+</ParamField>
+
+<ParamField path="onInit" type="() => void | Promise<void>">
+  Called once after mount. Use it to trigger async operations such as loading
+  the user profile before computing visibility.
+</ParamField>
+
+## Async visibility and disabled guards
+
+Both `IScaffold2Group` and `IScaffold2Option` accept async functions for
+`isVisible` and `isDisabled`. The Scaffold evaluates all guards on mount (and
+whenever `deps` changes) and hides or disables items accordingly.
+
+```tsx async-guards.tsx
+import { IScaffold2Group } from 'react-declarative';
+
+const options: IScaffold2Group[] = [
+  {
+    id: 'admin',
+    label: 'Admin',
+    isVisible: async () => {
+      // hide this entire group for non-admins
+      const role = await authService.getCurrentRole();
+      return role === 'admin';
+    },
+    children: [
+      {
+        id: 'users',
+        label: 'Users',
+        isDisabled: async (payload) => {
+          return !payload.hasUsersPermission;
+        },
+      },
+    ],
+  },
+];
+```
+
+<Warning>
+  Guards run asynchronously. Items are visible and enabled by default until the
+  guard resolves. If you need to block access immediately, set `loading` on the
+  `Scaffold2` while guards are pending.
+</Warning>
+
+## Tabs and nested options
+
+An `IScaffold2Option` can have both `tabs` (rendered in the top app bar) and
+`options` (nested sub-items in the side menu):
+
+```tsx tabs-and-options.tsx
+import { IScaffold2Group } from 'react-declarative';
+
+const options: IScaffold2Group[] = [
+  {
+    id: 'build',
+    label: 'Build',
+    children: [
+      {
+        id: 'authentication',
+        label: 'Authentication',
+        // tabs appear in the top bar when this option is active
+        tabs: [
+          { id: 'users',    label: 'Users' },
+          { id: 'sessions', label: 'Sessions' },
+        ],
+        // options appear as sub-items in the side menu
+        options: [
+          { id: 'users',    label: 'Users list' },
+          { id: 'sessions', label: 'Active sessions' },
+        ],
+      },
+    ],
+  },
+];
+```
+
+## Scaffold2 vs Scaffold3 vs Scaffold (v1)
+
+<CardGroup cols={3}>
+  <Card title="Scaffold (v1)" icon="cube">
+    The original app shell. Minimal API but limited customisation. Consider
+    migrating to Scaffold2.
+  </Card>
+  <Card title="Scaffold2" icon="layout-panel-left">
+    Recommended for most apps. Full async guard support, tabs, nested options,
+    payload forwarding, and slot components.
+  </Card>
+  <Card title="Scaffold3" icon="sparkles">
+    Updated visual style with the same configuration API as Scaffold2. Drop-in
+    replacement when you want a refreshed look.
+  </Card>
+</CardGroup>
+
+<Tip>
+  All three variants accept the same `IScaffold2Group[]` array for `options`.
+  You can switch between Scaffold2 and Scaffold3 by changing the import without
+  touching your navigation config.
+</Tip>
+
+## Slot components
+
+`Scaffold2` exposes named slot props for inserting custom React components at
+specific positions in the layout:
+
+| Prop | Position |
+|---|---|
+| `AfterAppName` | After the app name in the top bar |
+| `BeforeActionMenu` | Before the action icon row |
+| `BeforeSearch` / `AfterSearch` | Around the search box in the drawer |
+| `BeforeMenuContent` / `AfterMenuContent` | Around the menu item list |
+| `BeforeContent` / `AfterContent` | Around the main content area |
+| `Copyright` | Footer of the side drawer |

@@ -1,0 +1,374 @@
+---
+title: "How react-declarative manages form state for you"
+description: "How handler, onChange, payload, and per-field callbacks like isInvalid and isVisible give you full form state control without manual useState or useEffect."
+---
+
+react-declarative manages form state for you. You supply an initial data loader, subscribe to changes, and define per-field rules as plain callback functions — the library handles diffing, re-renders, validation display, and disabled/hidden field states without any external state managers or manual `useState` wiring. This page explains all the moving parts.
+
+## Loading initial data: the `handler` prop
+
+The `handler` prop tells `<One />` where to get its initial data. It can be a static object, a sync function, or an async function — the component resolves it automatically.
+
+```typescript
+import { OneTyped, TypedField, FieldType } from 'react-declarative';
+
+// Static object
+<OneTyped
+  fields={fields}
+  handler={{ firstName: 'Jane', email: 'jane@example.com' }}
+/>
+
+// Async function — useful for fetching from an API
+<OneTyped
+  fields={fields}
+  handler={async (payload) => {
+    const user = await fetch(`/api/users/${payload.userId}`).then(r => r.json());
+    return user;
+  }}
+  payload={{ userId: '42' }}
+/>
+```
+
+`handler` receives the current `payload` value, so you can use runtime context (IDs, roles, feature flags) to decide what data to load without threading props manually.
+
+<Note>
+`IOnePublicProps` also exposes a `data` prop as an alternative to `handler` for developers who prefer the familiar controlled-component pattern. Use either; avoid mixing both on the same `<One />`.
+</Note>
+
+## Reacting to changes: the `onChange` prop
+
+`onChange` (aliased as `change` in the lower-level `IOneProps`) is called on every field change. It receives the full updated data object. Use it to sync state, auto-save, or update sibling UI.
+
+```typescript
+const [formData, setFormData] = useState<ProfileData | null>(null);
+
+<OneTyped<ProfileData>
+  fields={fields}
+  handler={() => fetchProfile()}
+  onChange={(data, initial) => {
+    // `initial` is true on the first call after handler resolves —
+    // useful to skip saves triggered by loading data.
+    if (!initial) {
+      setFormData(data);
+    }
+  }}
+/>
+```
+
+### Debouncing for server auto-save
+
+For text-heavy forms you usually don't want to fire a network request on every keystroke. Use `fieldDebounce` on `<One />` to delay `onChange` calls from `FieldType.Text` fields, and debounce the save logic itself on the consumer side.
+
+```typescript
+import { useMemo } from 'react';
+import debounce from 'lodash/debounce';
+
+const autoSave = useMemo(
+  () =>
+    debounce(async (data: ProfileData) => {
+      await fetch('/api/profile', {
+        method: 'PUT',
+        body: JSON.stringify(data),
+      });
+    }, 800),
+  []
+);
+
+<OneTyped<ProfileData>
+  fields={fields}
+  handler={fetchProfile}
+  fieldDebounce={300}   // debounces Text field onChange internally
+  onChange={(data, initial) => {
+    if (!initial) autoSave(data);
+  }}
+/>
+```
+
+## Passing context: the `payload` prop
+
+`payload` is a stable reference object (or factory function) that flows into every field callback alongside the data object. Use it for anything that comes from outside the form itself — user permissions, route parameters, feature flags, or references to external services.
+
+```typescript
+interface AppPayload {
+  userRole: 'admin' | 'viewer';
+}
+
+const fields: TypedField<ProfileData, AppPayload>[] = [
+  {
+    type: FieldType.Text,
+    name: 'internalNote',
+    title: 'Internal note',
+    // Only admins can edit this field
+    isReadonly: (_data, payload) => payload.userRole !== 'admin',
+  },
+];
+
+<OneTyped<ProfileData, AppPayload>
+  fields={fields}
+  handler={fetchProfile}
+  payload={{ userRole: currentUser.role }}
+/>
+```
+
+<Warning>
+`payload` bypasses change detection by design — updating it does not trigger a re-render of the form tree. If you need reactive context that causes re-renders, use the `context` prop on `<One />` instead.
+</Warning>
+
+## Per-field state callbacks
+
+Each field can declare four callbacks that receive the current `data` object (and `payload`) and return a value describing the field's state. react-declarative re-evaluates these on every change and updates the UI automatically.
+
+<AccordionGroup>
+  <Accordion title="isInvalid — blocking validation">
+    Return a non-null string to mark the field invalid and display an error. Return `null` if the value is acceptable. Fields with errors prevent the `invalidity` callback on `<One />` from resolving cleanly.
+
+    ```typescript
+    {
+      type: FieldType.Text,
+      name: 'email',
+      title: 'Email',
+      isInvalid({ email }) {
+        const expr = /^[\w-.]+@([\w-]+\.)+[\w-]{2,4}$/g;
+        if (!expr.test(email)) {
+          return 'Invalid email address';
+        }
+        return null;
+      },
+    }
+    ```
+
+    `isInvalid` supports cross-field validation — the full data object is available, so you can compare two fields:
+
+    ```typescript
+    {
+      type: FieldType.Text,
+      name: 'to',
+      title: 'To',
+      isInvalid: ({ from, to }) => {
+        if (from && to && parseInt(from) > parseInt(to)) {
+          return 'Must be greater than "From"';
+        }
+        return null;
+      },
+    }
+    ```
+  </Accordion>
+
+  <Accordion title="isIncorrect — non-blocking validation">
+    Like `isInvalid`, but returning a string shows a warning indicator in the UI without blocking form submission. Use it for spell-check style hints that don't prevent saving.
+
+    ```typescript
+    {
+      type: FieldType.Text,
+      name: 'username',
+      title: 'Username',
+      isIncorrect({ username }) {
+        if (username && username.length < 4) {
+          return 'Usernames shorter than 4 characters are not recommended';
+        }
+        return null;
+      },
+    }
+    ```
+  </Accordion>
+
+  <Accordion title="isVisible — show or hide a field">
+    Return `false` to remove the field from the DOM entirely. The field's value is still present in the data object even when hidden.
+
+    ```typescript
+    {
+      type: FieldType.Text,
+      name: 'companyName',
+      title: 'Company name',
+      isVisible: ({ accountType }) => accountType === 'business',
+    }
+    ```
+  </Accordion>
+
+  <Accordion title="isDisabled — prevent interaction">
+    Return `true` to render the field in a disabled state. The value is still readable but cannot be changed by the user.
+
+    ```typescript
+    {
+      type: FieldType.Text,
+      name: 'email',
+      title: 'Email',
+      isDisabled: ({ locked }) => Boolean(locked),
+    }
+    ```
+  </Accordion>
+
+  <Accordion title="isReadonly — display without edit">
+    Return `true` to render the field in read-only mode. Unlike `isDisabled`, the value is still visually styled as an active field but cannot be edited.
+
+    ```typescript
+    {
+      type: FieldType.Text,
+      name: 'createdAt',
+      title: 'Created at',
+      isReadonly: () => true,
+    }
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Computed values with `compute`
+
+The `compute` prop derives a field's display value from the data object each render. A field with `compute` is automatically read-only, because its value is never stored in the data object directly.
+
+```typescript
+const fields: TypedField[] = [
+  {
+    type: FieldType.Text,
+    name: 'firstName',
+    title: 'First name',
+  },
+  {
+    type: FieldType.Text,
+    name: 'lastName',
+    title: 'Last name',
+  },
+  {
+    type: FieldType.Text,
+    name: 'fullName',
+    title: 'Full name (computed)',
+    // Always shows "firstName lastName", never stored separately
+    compute: ({ firstName, lastName }) =>
+      [firstName, lastName].filter(Boolean).join(' '),
+  },
+];
+```
+
+## Default values vs handler-loaded data
+
+`defaultValue` at the field level and `handler`-loaded data are two separate mechanisms that interact in a specific order:
+
+<Steps>
+  <Step title="handler runs">
+    `<One />` calls your `handler` function and awaits the result. The returned object becomes the initial data.
+  </Step>
+  <Step title="defaultValue fills gaps">
+    For each field that has a `defaultValue`, if the resolved data object has `null`, `undefined`, or is missing that key, the `defaultValue` is used instead.
+  </Step>
+  <Step title="First onChange fires">
+    `onChange` is called once with `initial: true` to reflect the merged initial state. This gives you the fully resolved starting data.
+  </Step>
+</Steps>
+
+```typescript
+// If handler returns { firstName: 'Jane' } and the schema has:
+{
+  type: FieldType.Text,
+  name: 'role',
+  defaultValue: 'viewer',   // used because handler didn't supply 'role'
+},
+{
+  type: FieldType.Text,
+  name: 'firstName',
+  defaultValue: 'Unknown',  // NOT used — handler already supplied 'Jane'
+},
+```
+
+`defaultValue` can also be a function that receives `payload`, which is useful when the default depends on runtime context:
+
+```typescript
+{
+  type: FieldType.Text,
+  name: 'assignee',
+  defaultValue: (payload) => payload.currentUsername,
+}
+```
+
+## Full example: a self-validating form with auto-save
+
+```typescript
+import { useState, useMemo } from 'react';
+import debounce from 'lodash/debounce';
+import { OneTyped, TypedField, FieldType } from 'react-declarative';
+import { Email } from '@mui/icons-material';
+
+interface ProfileData {
+  firstName: string;
+  lastName: string;
+  email: string;
+  role: string;
+  visible: boolean;
+  disabled: boolean;
+}
+
+interface AppPayload {
+  userId: string;
+}
+
+const fields: TypedField<ProfileData, AppPayload>[] = [
+  {
+    type: FieldType.Text,
+    name: 'firstName',
+    title: 'First name',
+    columns: '6',
+    isDisabled: ({ disabled }) => disabled,
+  },
+  {
+    type: FieldType.Text,
+    name: 'lastName',
+    title: 'Last name',
+    columns: '6',
+    isDisabled: ({ disabled }) => disabled,
+  },
+  {
+    type: FieldType.Text,
+    name: 'email',
+    title: 'Email',
+    inputType: 'email',
+    trailingIcon: Email,
+    isVisible: ({ visible }) => visible,
+    isInvalid: ({ email }) => {
+      if (!email) return 'Email is required';
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return 'Invalid email';
+      return null;
+    },
+  },
+  {
+    type: FieldType.Expansion,
+    title: 'Debug controls',
+    fields: [
+      { type: FieldType.Switch, name: 'visible',  title: 'Show email field', defaultValue: true },
+      { type: FieldType.Switch, name: 'disabled', title: 'Disable name fields' },
+    ],
+  },
+];
+
+export function ProfileForm({ userId }: { userId: string }) {
+  const [saved, setSaved] = useState(false);
+
+  const autoSave = useMemo(
+    () =>
+      debounce(async (data: ProfileData) => {
+        await fetch(`/api/users/${userId}`, {
+          method: 'PUT',
+          body: JSON.stringify(data),
+        });
+        setSaved(true);
+      }, 600),
+    [userId]
+  );
+
+  return (
+    <OneTyped<ProfileData, AppPayload>
+      fields={fields}
+      handler={async ({ userId }) => {
+        const res = await fetch(`/api/users/${userId}`);
+        return res.json();
+      }}
+      payload={{ userId }}
+      fieldDebounce={300}
+      onChange={(data, initial) => {
+        if (!initial) {
+          setSaved(false);
+          autoSave(data);
+        }
+      }}
+    />
+  );
+}
+```

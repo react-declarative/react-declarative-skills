@@ -1,0 +1,224 @@
+---
+title: "Conditional field visibility and disabled state"
+description: "Show or hide fields based on form state using isVisible, isDisabled, isReadonly, FieldType.Condition, and the payload prop for RBAC and feature flags."
+---
+
+React-declarative gives you three orthogonal callbacks for controlling how a field appears based on the current form state: `isVisible` hides or shows the field, `isDisabled` greys it out and blocks input, and `isReadonly` renders it as read-only text. All three receive the same arguments — the full data object and the external `payload` — so you can branch on either form state or application context.
+
+## Controlling visibility with `isVisible`
+
+Return `true` to show the field, `false` to remove it from the DOM entirely. The field's value is preserved in the form data even while hidden.
+
+```tsx
+import { FieldType, TypedField } from 'react-declarative';
+
+const fields: TypedField[] = [
+  {
+    type: FieldType.Combo,
+    name: 'contactMethod',
+    title: 'Preferred contact method',
+    itemList: ['email', 'phone', 'post'],
+  },
+  {
+    // Only rendered when the user chooses 'phone'
+    type: FieldType.Text,
+    name: 'phoneNumber',
+    title: 'Phone number',
+    isVisible({ contactMethod }) {
+      return contactMethod === 'phone';
+    },
+  },
+  {
+    type: FieldType.Text,
+    name: 'emailAddress',
+    title: 'Email address',
+    isVisible({ contactMethod }) {
+      return contactMethod === 'email';
+    },
+  },
+];
+```
+
+## Disabling fields with `isDisabled`
+
+Return `true` to disable a field. The field renders but blocks all user interaction. This is useful for making a button inactive while a request is in flight.
+
+```tsx
+const fields: TypedField[] = [
+  {
+    type: FieldType.Text,
+    name: 'email',
+    title: 'Email',
+    isDisabled({ disabled }) {
+      return disabled;
+    },
+  },
+  {
+    type: FieldType.Switch,
+    name: 'disabled',
+    title: 'Disable the email field',
+  },
+];
+```
+
+You can also disable a field permanently with the static `disabled: true` prop when the condition never changes at runtime.
+
+## Making fields read-only with `isReadonly`
+
+`isReadonly` renders the field value as non-editable text. Unlike `isDisabled`, read-only fields do not appear greyed out — they look like display labels.
+
+```tsx
+{
+  type: FieldType.Text,
+  name: 'createdAt',
+  title: 'Created at',
+  isReadonly: () => true, // always read-only
+}
+```
+
+For values computed entirely from other fields, use `compute` instead. It implies `readonly` and recalculates automatically:
+
+```tsx
+{
+  type: FieldType.Text,
+  name: 'fullName',
+  title: 'Full name',
+  compute: ({ firstName, lastName }) => `${firstName} ${lastName}`,
+}
+```
+
+## Conditional groups with `FieldType.Condition`
+
+`FieldType.Condition` evaluates an async or sync predicate and renders its `fields` children only when the condition is truthy. Use it to gate entire sections of a form.
+
+```tsx
+{
+  type: FieldType.Condition,
+  condition: async ({ accountType }, payload) => {
+    return accountType === 'business';
+  },
+  fields: [
+    {
+      type: FieldType.Text,
+      name: 'companyName',
+      title: 'Company name',
+    },
+    {
+      type: FieldType.Text,
+      name: 'vatNumber',
+      title: 'VAT number',
+    },
+  ],
+}
+```
+
+<Tip>
+  `FieldType.Condition` supports `conditionLoading` and `conditionElse` to
+  render placeholder UI while the async predicate resolves or when the condition
+  is false.
+</Tip>
+
+```tsx
+{
+  type: FieldType.Condition,
+  condition: async ({ accountType }) => accountType === 'business',
+  conditionLoading: () => <CircularProgress size={20} />,
+  conditionElse: () => <p>Switch to a business account to see these fields.</p>,
+  fields: [ /* business-only fields */ ],
+}
+```
+
+## Static hiding with the `hidden` prop
+
+`isVisible` removes a field based on other form data. The `hidden` prop removes a field based on the external `payload` — things that don't change during form interaction, like feature flags or user roles.
+
+```tsx
+{
+  type: FieldType.Text,
+  name: 'phone',
+  title: 'Phone',
+  hidden: ({ payload }) => {
+    return !payload.features.has('show-phone-number');
+  },
+}
+```
+
+<Note>
+  `hidden` is evaluated once per render cycle using the payload. Use it for
+  static RBAC or feature-flag gates. Use `isVisible` for anything that changes
+  as the user fills in the form.
+</Note>
+
+## Responsive hiding
+
+You can hide a field on specific device sizes without JavaScript:
+
+```tsx
+{
+  type: FieldType.Text,
+  name: 'detailedNotes',
+  title: 'Notes',
+  phoneHidden: true,        // hidden on phones
+  tabletHidden: false,      // visible on tablets
+  desktopHidden: false,     // visible on desktop
+}
+```
+
+## The `payload` prop for passing context
+
+`payload` is an external object you pass to `<One />` that flows into every callback — `isVisible`, `isDisabled`, `isReadonly`, `isInvalid`, `hidden`, and others. It is meant for data that belongs to the application context rather than the form data itself, such as user roles, feature flags, or service instances.
+
+```tsx
+const payload = {
+  userRole: 'admin',
+  features: new Set(['show-phone-number', 'export-data']),
+};
+
+<One
+  fields={fields}
+  handler={() => initialData}
+  payload={payload}
+/>
+```
+
+Inside a field:
+
+```tsx
+{
+  type: FieldType.Button,
+  title: 'Delete record',
+  isVisible: (data, payload) => payload.userRole === 'admin',
+}
+```
+
+<CodeGroup>
+
+```tsx role-based hiding
+const fields: TypedField[] = [
+  {
+    type: FieldType.Text,
+    name: 'salary',
+    title: 'Salary',
+    // Visible only to HR and admins
+    hidden: ({ payload }) =>
+      !['hr', 'admin'].includes(payload.userRole),
+  },
+];
+
+<One fields={fields} handler={fetchEmployee} payload={{ userRole: currentUser.role }} />
+```
+
+```tsx feature-flag hiding
+const fields: TypedField[] = [
+  {
+    type: FieldType.Text,
+    name: 'betaField',
+    title: 'Beta feature',
+    hidden: ({ payload }) => !payload.features.has('beta-form-fields'),
+  },
+];
+
+<One fields={fields} handler={fetchData} payload={{ features: userFeatureSet }} />
+```
+
+</CodeGroup>

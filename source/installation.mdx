@@ -1,0 +1,84 @@
+---
+title: "Installing react-declarative in your project"
+description: "Install react-declarative and its MUI v5 peer dependencies, or scaffold a new app with the CRA template. Includes a lite version for existing projects."
+---
+
+react-declarative builds on top of Material UI (MUI) v5, so you install both the library and its required peer dependencies together. This page covers the three installation paths: a fresh project, an existing project, and a lightweight variant for apps that only need forms.
+
+## Full installation
+
+Install react-declarative alongside MUI v5 and its required styling packages:
+
+<Tabs>
+  <Tab title="npm">
+    ```bash
+    npm install --save react-declarative tss-react @mui/material @emotion/react @emotion/styled
+    ```
+  </Tab>
+  <Tab title="yarn">
+    ```bash
+    yarn add react-declarative tss-react @mui/material @emotion/react @emotion/styled
+    ```
+  </Tab>
+</Tabs>
+
+<Note>
+  react-declarative requires **MUI v5** (`@mui/material ^5.5.0`). It is not compatible with MUI v4 or v6. The `tss-react` package is a required peer dependency used for component-level styling.
+</Note>
+
+### Peer dependencies explained
+
+| Package | Why it's needed |
+|---|---|
+| `@mui/material` | Provides all the base UI components (inputs, buttons, dialogs) |
+| `@emotion/react` + `@emotion/styled` | MUI's CSS-in-JS engine; required for any MUI v5 project |
+| `tss-react` | Used by react-declarative internally for scoped styles |
+
+## Scaffold a new app with the CRA template
+
+If you are starting a new project from scratch, the quickest path is the official `create-react-app` template. It sets up React, TypeScript, MUI, and react-declarative in one command:
+
+<Tabs>
+  <Tab title="yarn create">
+    ```bash
+    yarn create react-app --template cra-template-react-declarative .
+    ```
+  </Tab>
+  <Tab title="npx">
+    ```bash
+    npx create-react-app . --template=react-declarative
+    ```
+  </Tab>
+</Tabs>
+
+The template repository is at [github.com/react-declarative/cra-template-react-declarative](https://github.com/react-declarative/cra-template-react-declarative).
+
+## Lite version for existing apps
+
+If you already have an app with its own MUI setup and only need the `<One />` form component, install the lightweight variant instead. It carries a smaller dependency footprint:
+
+```bash
+npm install --save react-declarative-lite
+```
+
+<Tip>
+  Use `react-declarative-lite` when you want to embed forms into an existing application without pulling in the full framework (data grid, scaffold, kanban, wizard, etc.). The API for `<One />` and `TypedField` is identical between the full and lite packages.
+</Tip>
+
+## TypeScript
+
+react-declarative is written in TypeScript and ships full type definitions. No `@types/` package is needed. Your IDE will provide IntelliSense for all schema types, component props, and hook return values out of the box.
+
+## Verify the installation
+
+After installing, import the core exports to confirm everything resolves correctly:
+
+```tsx
+import { One, TypedField, FieldType } from 'react-declarative';
+
+console.log(FieldType.Text); // 'text'
+```
+
+## Next steps
+
+Once installation is complete, follow the [quick start guide](/quickstart) to build your first form.

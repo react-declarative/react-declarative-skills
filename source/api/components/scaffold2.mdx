@@ -1,0 +1,231 @@
+---
+title: "Scaffold2 component props and navigation config"
+description: "Props reference for Scaffold2 in react-declarative: options tree, activeOptionPath, async guards, tab configuration, payload, and slot components."
+---
+
+`Scaffold2` is an application shell component. It renders a sidebar with grouped navigation items, an optional search field, a top toolbar with action buttons, and a content area where you render your page content as `children`. Navigation items are defined as a tree of groups, options, and nested sub-options — all with async visibility and disabled predicates so you can gate items behind permission checks. The component is generic over a `Payload` type that is threaded through all visibility and action callbacks.
+
+```tsx
+import { Scaffold2 } from "react-declarative";
+import HomeIcon from "@mui/icons-material/Home";
+import PeopleIcon from "@mui/icons-material/People";
+
+export default function AppShell() {
+  return (
+    <Scaffold2
+      appName="My App"
+      activeOptionPath="home"
+      options={[
+        {
+          id: "main",
+          label: "Main",
+          children: [
+            {
+              id: "home",
+              label: "Home",
+              icon: HomeIcon,
+            },
+            {
+              id: "users",
+              label: "Users",
+              icon: PeopleIcon,
+              isVisible: async (payload) => payload.isAdmin,
+            },
+          ],
+        },
+      ]}
+      onOptionClick={(path, id) => {
+        console.log("navigated to", id);
+      }}
+    >
+      <main>Page content goes here</main>
+    </Scaffold2>
+  );
+}
+```
+
+## Core props
+
+<ParamField path="options" type="IScaffold2Group<T>[]" required>
+  The navigation tree. Each element is a top-level group that contains one or more option items. Groups can be labelled sections in the sidebar; options are the clickable navigation entries.
+</ParamField>
+
+<ParamField path="activeOptionPath" type="string" required>
+  The dot-separated path string of the currently active option (e.g. `"main.users"`). `Scaffold2` uses this to highlight the selected item in the sidebar.
+</ParamField>
+
+<ParamField path="children" type="React.ReactNode" required>
+  The page content rendered in the main content area to the right of the sidebar.
+</ParamField>
+
+<ParamField path="appName" type="string">
+  Application name displayed at the top of the sidebar. Defaults to `"Scaffold2"`.
+</ParamField>
+
+<ParamField path="payload" type="T">
+  Context object passed to every `isVisible` and `isDisabled` callback in the options tree and actions array. Use it to carry user roles, feature flags, or tenant context without prop-drilling.
+</ParamField>
+
+<ParamField path="actions" type="IScaffold2Action<T>[]">
+  Toolbar action buttons rendered at the top right. Each action extends `IOption` and adds `isVisible(payload)` and `isDisabled(payload)` predicates. The `action` string is forwarded to `onAction` when clicked.
+</ParamField>
+
+<ParamField path="activeTabPath" type="string">
+  The dot-separated path of the currently active tab within the active option. Use this when an option has `tabs` defined.
+</ParamField>
+
+<ParamField path="loading" type="boolean | number">
+  When truthy, renders a loading indicator in the sidebar. Pass a number to show determinate progress.
+</ParamField>
+
+## `IScaffold2Group` shape
+
+Each entry in `options` must conform to this structure.
+
+<ParamField path="id" type="string" required>
+  Unique identifier for the group, used when constructing path strings.
+</ParamField>
+
+<ParamField path="label" type="string">
+  Human-readable group heading shown in the sidebar. Omit to render the group without a visible heading.
+</ParamField>
+
+<ParamField path="icon" type="React.ComponentType">
+  Icon component rendered next to the group label.
+</ParamField>
+
+<ParamField path="noHeader" type="boolean">
+  When `true`, the group heading row is suppressed and only the child option items are rendered.
+</ParamField>
+
+<ParamField path="isVisible" type="() => boolean | Promise<boolean>">
+  Async predicate that controls whether the entire group (and all its children) is shown. Evaluated once on mount and after each `deps` change.
+</ParamField>
+
+<ParamField path="isDisabled" type="() => boolean | Promise<boolean>">
+  Async predicate that disables all items in the group when it resolves to `true`.
+</ParamField>
+
+<ParamField path="children" type="IScaffold2Option<T>[]" required>
+  Navigation options belonging to this group.
+</ParamField>
+
+## `IScaffold2Option` shape
+
+<ParamField path="id" type="string" required>
+  Unique identifier for the option. Contributes to the path string (e.g. group `"main"` + option `"users"` → path `"main.users"`).
+</ParamField>
+
+<ParamField path="label" type="React.ReactNode">
+  Display label for the navigation item.
+</ParamField>
+
+<ParamField path="icon" type="React.ComponentType<any>">
+  Icon rendered to the left of the label in the sidebar.
+</ParamField>
+
+<ParamField path="isVisible" type="(payload: T) => boolean | Promise<boolean>">
+  Controls visibility of this specific option. Receives the current `payload`.
+</ParamField>
+
+<ParamField path="isDisabled" type="(payload: T) => boolean | Promise<boolean>">
+  Controls whether this option is interactive. A disabled option is rendered but cannot be clicked.
+</ParamField>
+
+<ParamField path="tabs" type="IScaffold2Tab<T>[]">
+  Sub-tabs displayed below the option label when the option is active. Each tab has `id`, optional `label`, optional `icon`, and `isVisible`/`isDisabled`/`isActive` predicates that all receive `payload`.
+</ParamField>
+
+<ParamField path="options" type="IScaffold2Option<T>[]">
+  Nested child options. Use to build multi-level sidebar trees.
+</ParamField>
+
+## Callbacks
+
+<ParamField path="onOptionClick" type="(path: string, id: string) => void | boolean | undefined">
+  Called when a navigation option is clicked. `path` is the full dot-separated path; `id` is the option's own `id`. Return `false` to prevent the default active-path update.
+</ParamField>
+
+<ParamField path="onOptionGroupClick" type="(path: string, id: string) => void | boolean | undefined">
+  Called when a group header is clicked.
+</ParamField>
+
+<ParamField path="onTabChange" type="(path: string, tab: string, id: string) => void">
+  Called when the user switches tabs within an active option. `tab` is the selected tab's `id`.
+</ParamField>
+
+<ParamField path="onAction" type="(name: string) => void">
+  Called when a toolbar action button is activated. `name` is the `action` string from the matching `IScaffold2Action`.
+</ParamField>
+
+<ParamField path="onInit" type="() => void | Promise<void>">
+  Called once on component mount. Use it to trigger initial data loads.
+</ParamField>
+
+<ParamField path="onLoadStart" type="() => void">
+  Called before an async `isVisible`/`isDisabled` evaluation begins.
+</ParamField>
+
+<ParamField path="onLoadEnd" type="(isOk: boolean) => void">
+  Called after an async evaluation completes. `isOk` is `false` if it threw.
+</ParamField>
+
+<ParamField path="fallback" type="(e: Error) => void">
+  Error handler invoked if an async predicate or `onInit` rejects.
+</ParamField>
+
+## Slot components
+
+<ParamField path="AfterAppName" type="React.ComponentType<any>">
+  Custom content rendered immediately after the app name in the sidebar header.
+</ParamField>
+
+<ParamField path="BeforeSearch" type="React.ComponentType<any>">
+  Custom content rendered above the sidebar search field.
+</ParamField>
+
+<ParamField path="AfterSearch" type="React.ComponentType<any>">
+  Custom content rendered below the sidebar search field.
+</ParamField>
+
+<ParamField path="BeforeMenuContent" type="React.ComponentType<any>">
+  Custom content rendered before the navigation option list.
+</ParamField>
+
+<ParamField path="AfterMenuContent" type="React.ComponentType<any>">
+  Custom content rendered after the navigation option list.
+</ParamField>
+
+<ParamField path="BeforeContent" type="React.ComponentType<any>">
+  Custom content rendered before the main `children` content area.
+</ParamField>
+
+<ParamField path="AfterContent" type="React.ComponentType<any>">
+  Custom content rendered after the main `children` content area.
+</ParamField>
+
+<ParamField path="Copyright" type="React.ComponentType<any>">
+  Copyright notice component rendered at the bottom of the sidebar.
+</ParamField>
+
+## Flags
+
+<ParamField path="noSearch" type="boolean">
+  When `true`, the search field in the sidebar is hidden. Defaults to `false`.
+</ParamField>
+
+<ParamField path="noAppName" type="boolean">
+  When `true`, the app name display is hidden. Defaults to `false`.
+</ParamField>
+
+<ParamField path="fixedHeader" type="boolean">
+  When `true`, the top bar remains fixed as the content area scrolls.
+</ParamField>
+
+<ParamField path="dense" type="boolean">
+  Reduces vertical padding on navigation items for a more compact sidebar.
+</ParamField>
+
+<ParamField path="deps" type="any[]">
+  Dependency array. Changing any value in this array re-evaluates all async `isVisible` / `isDisabled` predicates in the options tree.
+</ParamField>

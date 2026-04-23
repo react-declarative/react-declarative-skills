@@ -1,0 +1,283 @@
+---
+title: "Layout types: Group, Paper, Tabs, Condition, and more"
+description: "Guide to react-declarative layout containers — Group, Paper, Expansion, Tabs, Condition, and custom Layout — with responsive 12-column grid examples."
+---
+
+Layout types are `FieldType` values that act as containers. They do not store values themselves; instead, they wrap one or more child fields inside a visual or logical structure. You nest child fields in a `fields` array (multiple children) or a `child` property (single child). All layout types participate in the same 12-column responsive grid as regular fields, so you can compose arbitrarily complex UIs purely from data.
+
+## All layout FieldType values
+
+| Enum value | Description |
+|---|---|
+| `FieldType.Group` | Invisible flex container; primary tool for responsive column layouts |
+| `FieldType.Paper` | MUI Paper card with optional padding; use `innerPadding` to control it |
+| `FieldType.Outline` | Outlined bordered box, visually similar to an outlined MUI TextField |
+| `FieldType.Expansion` | MUI Accordion/ExpansionPanel; set `expansionOpened` for default-open state |
+| `FieldType.Fragment` | React Fragment wrapper — zero DOM overhead, useful for grouping visibility logic |
+| `FieldType.Div` | Plain `<div>` wrapper for custom styling |
+| `FieldType.Box` | MUI Box wrapper that accepts `sx` for one-off style overrides |
+| `FieldType.Tabs` | Tabbed panel; configure `tabList`, `tabIndex`, `tabVariant`, `tabColor` |
+| `FieldType.Hero` | Absolute/relative positioning container; configure `top`, `left`, `width`, `height` per breakpoint |
+| `FieldType.Center` | Centers its children both vertically and horizontally |
+| `FieldType.Stretch` | Stretches its children to fill available height |
+| `FieldType.Condition` | Renders children only when a `condition` callback returns `true` |
+| `FieldType.Layout` | Fully custom layout; provide your own React component via the `customLayout` prop |
+
+## The 12-column responsive grid
+
+react-declarative uses a 12-column grid. Set `columns`, `phoneColumns`, `tabletColumns`, and `desktopColumns` on any layout or field to control how many columns it spans at each breakpoint. If you only set `columns`, all breakpoints inherit that value.
+
+```typescript
+// This group takes up 4/12 columns on desktop, 6/12 on tablet,
+// and the full 12/12 on phones — a classic responsive pattern.
+{
+  type: FieldType.Group,
+  phoneColumns: '12',
+  tabletColumns: '6',
+  desktopColumns: '4',
+  fields: [ /* ... */ ],
+}
+```
+
+<Note>
+Column values are strings (`'12'`, `'6'`, `'4'`), not numbers.
+</Note>
+
+## Examples
+
+### Group — responsive column layout
+
+`FieldType.Group` is the most frequently used layout. It creates an invisible flex row that its children fill according to their own column settings. Setting `fieldRightMargin: '0'` on the group removes the default spacing between siblings.
+
+```typescript
+import { TypedField, FieldType } from 'react-declarative';
+
+const fields: TypedField[] = [
+  {
+    type: FieldType.Group,
+    phoneColumns: '12',
+    tabletColumns: '6',
+    desktopColumns: '4',
+    fieldRightMargin: '0',
+    fields: [
+      {
+        type: FieldType.Text,
+        name: 'firstName',
+        title: 'First name',
+      },
+      {
+        type: FieldType.Text,
+        name: 'lastName',
+        title: 'Last name',
+      },
+      {
+        type: FieldType.Text,
+        name: 'email',
+        title: 'Email',
+        inputType: 'email',
+      },
+    ],
+  },
+];
+```
+
+### Paper — card container
+
+`FieldType.Paper` wraps its children in an MUI Paper surface. Use it to visually group related fields into a card. Set `innerPadding` to control spacing, or `outlinePaper: true` to render an outlined border instead of elevation.
+
+```typescript
+const fields: TypedField[] = [
+  {
+    type: FieldType.Paper,
+    fieldBottomMargin: '1',
+    innerPadding: '16px',
+    fields: [
+      {
+        type: FieldType.Line,
+        title: 'Contact details',
+      },
+      {
+        type: FieldType.Text,
+        name: 'phone',
+        title: 'Phone',
+        inputType: 'tel',
+        columns: '6',
+      },
+      {
+        type: FieldType.Text,
+        name: 'fax',
+        title: 'Fax',
+        inputType: 'tel',
+        columns: '6',
+      },
+    ],
+  },
+];
+```
+
+### Outline — bordered section
+
+`FieldType.Outline` draws a visible border around a group of fields. It is lighter than Paper and pairs well with form sections that need clear delineation without elevation.
+
+```typescript
+const fields: TypedField[] = [
+  {
+    type: FieldType.Outline,
+    fieldBottomMargin: '1',
+    fields: [
+      { type: FieldType.Line, title: 'Permissions' },
+      { type: FieldType.Checkbox, name: 'canRead',  title: 'Read',  columns: '4' },
+      { type: FieldType.Checkbox, name: 'canWrite', title: 'Write', columns: '4' },
+      { type: FieldType.Checkbox, name: 'canAdmin', title: 'Admin', columns: '4' },
+    ],
+  },
+];
+```
+
+### Expansion — collapsible accordion
+
+`FieldType.Expansion` creates an MUI Accordion that the user can expand and collapse. Set `expansionOpened: true` to start it open. The `title` prop becomes the accordion header and `description` appears as secondary text.
+
+```typescript
+const fields: TypedField[] = [
+  {
+    type: FieldType.Expansion,
+    title: 'Advanced settings',
+    description: 'Optional configuration',
+    expansionOpened: false,
+    fields: [
+      {
+        type: FieldType.Switch,
+        name: 'darkMode',
+        title: 'Dark mode',
+        defaultValue: false,
+      },
+      {
+        type: FieldType.Switch,
+        name: 'notifications',
+        title: 'Push notifications',
+        defaultValue: true,
+      },
+    ],
+  },
+];
+```
+
+### Tabs — tabbed panel
+
+`FieldType.Tabs` renders an MUI tab bar. Supply `tabList` with the tab labels and nest one `fields` entry per tab. Each top-level entry in `fields` corresponds to one tab pane in order.
+
+```typescript
+const fields: TypedField[] = [
+  {
+    type: FieldType.Tabs,
+    tabList: ['Profile', 'Security', 'Billing'],
+    tabVariant: 'standard',
+    tabColor: 'primary',
+    tabLine: true,
+    fields: [
+      // Tab 0 — Profile
+      {
+        type: FieldType.Group,
+        fields: [
+          { type: FieldType.Text, name: 'displayName', title: 'Display name' },
+          { type: FieldType.Text, name: 'bio', title: 'Bio', inputRows: 3 },
+        ],
+      },
+      // Tab 1 — Security
+      {
+        type: FieldType.Group,
+        fields: [
+          { type: FieldType.Text, name: 'currentPassword', title: 'Current password', inputType: 'password' },
+          { type: FieldType.Text, name: 'newPassword',     title: 'New password',     inputType: 'password' },
+        ],
+      },
+      // Tab 2 — Billing
+      {
+        type: FieldType.Typography,
+        typoVariant: 'body1',
+        placeholder: 'Billing settings coming soon.',
+      },
+    ],
+  },
+];
+```
+
+<Tip>
+Use `tabKeepFlow: true` if you want the tab panel to grow in height to match its content rather than clipping it.
+</Tip>
+
+### Condition — conditional rendering
+
+`FieldType.Condition` evaluates a `condition` callback against the current data object (and optional payload) on every change. When it returns `true`, the children render; when it returns `false`, they are removed from the DOM.
+
+```typescript
+interface FormData {
+  accountType: string;
+  companyName: string;
+}
+
+const fields: TypedField<FormData>[] = [
+  {
+    type: FieldType.Combo,
+    name: 'accountType',
+    title: 'Account type',
+    itemList: ['personal', 'business'],
+    tr: (v) => v === 'business' ? 'Business' : 'Personal',
+  },
+  {
+    type: FieldType.Condition,
+    // Only render the company name field when accountType === 'business'
+    condition: ({ accountType }) => accountType === 'business',
+    // Optional: show a spinner while the condition is being evaluated async
+    // conditionLoading: LoadingSpinner,
+    child: {
+      type: FieldType.Text,
+      name: 'companyName',
+      title: 'Company name',
+    },
+  },
+];
+```
+
+<Note>
+`condition` can return a `Promise<boolean>` for async checks (for example, a permission lookup). Provide `conditionLoading` to render a placeholder while the promise resolves. Use `conditionElse` to render fallback content when the condition is `false`.
+</Note>
+
+### Fragment — zero-overhead grouping
+
+`FieldType.Fragment` behaves like a React Fragment. It adds no DOM nodes of its own, making it ideal for applying shared callbacks like `isVisible` or `isDisabled` to a set of fields without introducing any wrapper element.
+
+```typescript
+const fields: TypedField<FormData>[] = [
+  {
+    type: FieldType.Fragment,
+    isVisible: ({ visible }) => visible,
+    fields: [
+      { type: FieldType.Text, name: 'hiddenField1', title: 'Field A' },
+      { type: FieldType.Text, name: 'hiddenField2', title: 'Field B' },
+    ],
+  },
+];
+```
+
+### Layout — fully custom container
+
+`FieldType.Layout` lets you supply your own React component via `customLayout`. The component receives `children` (the rendered child fields) alongside the full data object and an `onChange` helper.
+
+```typescript
+const fields: TypedField[] = [
+  {
+    type: FieldType.Layout,
+    customLayout: ({ children, onChange, _fieldData }) => (
+      <div style={{ border: '2px dashed hotpink', padding: 16 }}>
+        <p>Custom wrapper — current score: {_fieldData.score}</p>
+        {children}
+      </div>
+    ),
+    fields: [
+      { type: FieldType.Slider, name: 'score', minSlider: 0, maxSlider: 10 },
+    ],
+  },
+];
+```

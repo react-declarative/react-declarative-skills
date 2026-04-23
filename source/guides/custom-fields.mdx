@@ -1,0 +1,197 @@
+---
+title: "Custom fields: Component injection and SlotFactory"
+description: "Inject custom JSX into a form with FieldType.Component, or replace built-in renderers globally using OneSlotFactory and the react-declarative-mantine theme."
+---
+
+React-declarative gives you two complementary ways to customize what renders inside a form. `FieldType.Component` lets you drop any React component into a specific slot in your schema — a one-off injection with full access to the current form data. `OneSlotFactory` lets you replace a built-in field renderer globally, so every `FieldType.Text` (or any other type) across your entire application uses your custom component instead.
+
+## Injecting JSX with `FieldType.Component`
+
+Add a `FieldType.Component` entry to your fields array and provide an `element` function that returns a React component. The component receives a `ComponentFieldInstance` object as its props.
+
+```tsx
+import { FieldType, TypedField } from 'react-declarative';
+
+const fields: TypedField[] = [
+  {
+    type: FieldType.Paper,
+    fields: [
+      {
+        type: FieldType.Component,
+        element: (props) => <Logger {...props} />,
+      },
+    ],
+  },
+];
+```
+
+### Props available inside `element`
+
+The component you supply receives the full field instance props. The most commonly used ones are:
+
+| Prop | Type | Description |
+|------|------|-------------|
+| `data` | `Data` | The current form data object |
+| `payload` | `Payload` | The external payload passed to `<One />` |
+| `onChange` | `(data: Partial<Data>) => void` | Merge partial data back into the form |
+| `name` | `string` | The `name` property from the field schema |
+| `invalid` | `string \| null` | Current validation error message |
+| `disabled` | `boolean` | Whether the field is disabled |
+| `readonly` | `boolean` | Whether the field is read-only |
+
+```tsx
+interface IStatusBadgeProps {
+  data: { status: string };
+  payload: { theme: 'light' | 'dark' };
+}
+
+const StatusBadge = ({ data, payload }: IStatusBadgeProps) => (
+  <span
+    style={{
+      color: data.status === 'active' ? 'green' : 'red',
+      background: payload.theme === 'dark' ? '#333' : '#eee',
+    }}
+  >
+    {data.status}
+  </span>
+);
+
+// In your schema:
+{
+  type: FieldType.Component,
+  element: (props) => <StatusBadge {...props} />,
+}
+```
+
+<Note>
+  The `element` function is called on every render. Keep it a thin wrapper —
+  put your real logic inside the component you reference, not inside `element`
+  itself.
+</Note>
+
+### Writing back to the form
+
+Call `onChange` with a partial data object to update specific fields:
+
+```tsx
+const PrefillButton = ({ onChange }: { onChange: (d: any) => void }) => (
+  <button
+    onClick={() =>
+      onChange({ firstName: 'Jane', lastName: 'Smith' })
+    }
+  >
+    Prefill demo data
+  </button>
+);
+
+{
+  type: FieldType.Component,
+  element: (props) => <PrefillButton onChange={props.onChange} />,
+}
+```
+
+## Replacing built-in renderers with `OneSlotFactory`
+
+`OneSlotFactory` is a React context provider that accepts replacement components for any built-in field type. Wrap your `<One />` component (or your entire application) in `<OneSlotFactory>` to apply overrides everywhere inside it.
+
+```tsx
+import { OneSlotFactory, One } from 'react-declarative';
+import MyInput from './MyInput';
+import MyCheckBox from './MyCheckBox';
+
+const App = () => (
+  <OneSlotFactory
+    Text={MyInput}
+    CheckBox={MyCheckBox}
+  >
+    <One fields={fields} handler={handler} />
+  </OneSlotFactory>
+);
+```
+
+Every `FieldType.Text` and `FieldType.Checkbox` field inside the provider now uses your components.
+
+### Available slot names
+
+The following slot names correspond to `FieldType` values you can override:
+
+<AccordionGroup>
+  <Accordion title="Input slots">
+    `Text`, `Date`, `Time`, `Slider`, `Rating`, `Progress`
+  </Accordion>
+  <Accordion title="Selection slots">
+    `CheckBox`, `Switch`, `YesNo`, `Radio`, `Combo`, `Items`, `Complete`, `Tree`, `Dict`, `Choose`
+  </Accordion>
+  <Accordion title="Action slots">
+    `Button`, `Icon`
+  </Accordion>
+  <Accordion title="Layout and display slots">
+    `Line`, `Typography`, `File`
+  </Accordion>
+</AccordionGroup>
+
+### Slot component props
+
+Each slot component receives a typed props interface. For example, a custom `Text` component receives `ITextSlot`, a custom `CheckBox` component receives `ICheckBoxSlot`. These interfaces are exported from `react-declarative`:
+
+```tsx
+import { ITextSlot } from 'react-declarative';
+
+const MyInput = ({ value, onChange, disabled, readonly, title, description, invalid }: ITextSlot) => (
+  <div className="my-input-wrapper">
+    <label>{title}</label>
+    <input
+      value={value ?? ''}
+      disabled={disabled}
+      readOnly={readonly}
+      onChange={(e) => onChange(e.target.value)}
+      aria-invalid={!!invalid}
+    />
+    {invalid && <span className="error">{invalid}</span>}
+    {description && <small>{description}</small>}
+  </div>
+);
+```
+
+## When to use `Component` vs `OneSlotFactory`
+
+<Tabs>
+  <Tab title="Use FieldType.Component when...">
+    - You need a one-off widget that is unique to a single form or single place in a schema
+    - You want to display custom read-only data visualizations (charts, status badges, progress indicators)
+    - You need a component that writes back partial data updates via `onChange`
+    - The component is too specific to be reused across the application
+  </Tab>
+  <Tab title="Use OneSlotFactory when...">
+    - You want every text input, checkbox, or other field type to use a consistent custom design system component
+    - You are integrating a UI library (Mantine, Chakra UI, Ant Design) and want all form fields to use its components
+    - You need to apply a site-wide theme or accessibility enhancement to all fields at once
+    - Changes must be consistent and enforced across multiple forms or pages
+  </Tab>
+</Tabs>
+
+## Ready-made Mantine theme with `react-declarative-mantine`
+
+If you are using the [Mantine](https://mantine.dev/) component library, `react-declarative-mantine` provides a complete `OneSlotFactory` with all field types redesigned to match Mantine's aesthetic — without requiring any changes to your JSON schemas.
+
+```bash
+npm install react-declarative-mantine
+```
+
+```tsx
+import { MantineSlotFactory } from 'react-declarative-mantine';
+import { One } from 'react-declarative';
+
+const App = () => (
+  <MantineSlotFactory>
+    <One fields={fields} handler={handler} />
+  </MantineSlotFactory>
+);
+```
+
+Your existing field schemas remain unchanged. The library swaps in Mantine-styled renderers for every field type automatically.
+
+<Tip>
+  You can preview how the Mantine theme looks without installing anything at the
+  [Mantine theme playground](https://react-declarative-mantine.github.io/).
+</Tip>

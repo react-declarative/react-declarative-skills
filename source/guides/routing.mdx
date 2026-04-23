@@ -1,0 +1,298 @@
+---
+title: "Client-side routing with the Switch component"
+description: "Use the Switch component with ISwitchItem arrays, async guards, prefetch and unload hooks, redirects, and useRouteParams to build client-side navigation."
+---
+
+React-declarative ships its own router centered on the `<Switch />` component. You describe your application's routes as a plain array of `ISwitchItem` objects — each one carrying the path pattern, the component to render, optional async guards, prefetch logic, and redirect rules. `<Switch />` reads the current URL from a `history` object and renders the matching element, running guards and prefetches before the component mounts.
+
+## Defining routes
+
+Each route in the `items` array is an `ISwitchItem`. The minimum required field is `path`.
+
+```tsx
+import { Switch, ISwitchItem } from 'react-declarative';
+import { createBrowserHistory } from 'history';
+
+import HomePage from './pages/HomePage';
+import ProfilePage from './pages/ProfilePage';
+import LoginPage from './pages/LoginPage';
+
+const history = createBrowserHistory();
+
+const routes: ISwitchItem[] = [
+  {
+    path: '/',
+    redirect: '/profile',
+  },
+  {
+    path: '/profile',
+    element: () => <ProfilePage />,
+  },
+  {
+    path: '/login',
+    element: () => <LoginPage />,
+  },
+];
+
+const App = () => (
+  <Switch
+    history={history}
+    items={routes}
+    Loader={() => <p>Loading...</p>}
+    NotFound={() => <p>Page not found</p>}
+  />
+);
+```
+
+<Note>
+  Pass `element` as a factory function `() => <MyPage />`, not as a component
+  reference `MyPage`. This ensures the component is only instantiated when the
+  route matches, enabling code-splitting patterns.
+</Note>
+
+## Guards — async authentication checks
+
+The `guard` function runs before the element renders. If it returns `false`, the route is blocked (typically you redirect to a login page from inside the guard). Guards can be async, making them suitable for API-based permission checks.
+
+```tsx
+const routes: ISwitchItem[] = [
+  {
+    path: '/mint-page',
+    guard: async () => await ioc.roleService.has('whitelist'),
+    element: () => <MintPage />,
+  },
+  {
+    path: '/admin',
+    guard: () => ioc.authService.hasRole('admin'),
+    element: () => <AdminPage />,
+  },
+];
+```
+
+<Warning>
+  If `guard` returns `false`, the route simply does not render — it does not
+  automatically redirect. Add a separate redirect route or handle navigation
+  inside your `guard` function if you want to send unauthenticated users to a
+  login page.
+</Warning>
+
+## Prefetch and unload lifecycle hooks
+
+`prefetch` runs once before the element mounts. Use it to initialize services (connect to a wallet, fetch required config) that the page depends on. `unload` is the corresponding cleanup hook that runs when the route is left.
+
+```tsx
+{
+  path: '/mint-page',
+  guard: async () => await ioc.roleService.has('whitelist'),
+  prefetch: async () => await ioc.ethersService.init(),
+  unload: async () => await ioc.ethersService.dispose(),
+  element: () => <MintPage />,
+}
+```
+
+## Redirects
+
+`redirect` accepts either a string path or a function. The function receives the current route params and can return a path string or `null` (no redirect).
+
+```tsx
+// Static redirect
+{
+  path: '/',
+  redirect: '/profile',
+}
+
+// Conditional redirect — send to login if not authenticated
+{
+  path: '/',
+  redirect: () => {
+    if (ioc.authService.isAuthorized) {
+      return '/profile';
+    }
+    return '/login';
+  },
+}
+
+// Redirect with route params
+{
+  path: '/ticket/:id',
+  redirect: ({ id }) => `/ticket/${id}/card`,
+}
+```
+
+## Full example with guards and feature-based access
+
+The following example mirrors the pattern used in real CRM applications:
+
+```tsx
+import { Switch, ISwitchItem } from 'react-declarative';
+
+const routes: ISwitchItem[] = [
+  // Root redirect based on auth state
+  {
+    path: '/',
+    redirect: () =>
+      ioc.authService.isAuthorized ? '/dashboard' : '/login',
+  },
+
+  // Public routes
+  {
+    path: '/login',
+    element: () => <LoginPage />,
+  },
+
+  // Feature-gated routes
+  {
+    path: '/dashboard',
+    guard: () => ioc.authService.hasFeature('dashboard_read'),
+    element: () => <DashboardPage />,
+  },
+  {
+    path: '/users',
+    guard: () => ioc.authService.hasRole('admin'),
+    element: () => <UserListPage />,
+  },
+  {
+    path: '/users/:id/card',
+    guard: () => ioc.authService.hasRole('admin'),
+    element: () => <UserDetailPage />,
+  },
+
+  // Redirect /users/:id to the card sub-route
+  {
+    path: '/users/:id',
+    redirect: ({ id }) => `/users/${id}/card`,
+  },
+
+  // Route with prefetch/unload
+  {
+    path: '/mint',
+    guard: async () => await ioc.roleService.has('whitelist'),
+    prefetch: async () => await ioc.ethersService.init(),
+    unload: async () => await ioc.ethersService.dispose(),
+    redirect: () => {
+      const { isMetamaskAvailable, isProviderConnected } = ioc.ethersService;
+      if (!isMetamaskAvailable || !isProviderConnected) {
+        return '/connect';
+      }
+      return null;
+    },
+    element: () => <MintPage />,
+  },
+];
+
+const App = () => (
+  <Switch
+    history={history}
+    items={routes}
+    Loader={() => <CircularProgress />}
+    NotFound={() => <NotFoundPage />}
+  />
+);
+```
+
+## Route parameter hooks
+
+### `useRouteParams`
+
+`useRouteParams` subscribes to history changes and returns the extracted URL parameters for whichever route is currently active.
+
+```tsx
+import { useRouteParams } from 'react-declarative';
+
+interface IParams {
+  id: string;
+}
+
+const UserDetailPage = () => {
+  const params = useRouteParams<IParams>(routes, history);
+  // params.id === '42' when URL is /users/42/card
+  return <div>User ID: {params?.id}</div>;
+};
+```
+
+### `useRouteItem`
+
+`useRouteItem` returns the matching `ISwitchItem` object from your routes array (not just its params). Use this to access custom properties you have added to your route definitions.
+
+```tsx
+import { useRouteItem } from 'react-declarative';
+
+interface IAppRoute extends ISwitchItem {
+  sideMenu?: string;
+}
+
+const Sidebar = () => {
+  const currentRoute = useRouteItem<IAppRoute>(routes, history);
+  // currentRoute.sideMenu === 'root.report.ticket' when on /ticket route
+};
+```
+
+## Utility functions
+
+`getRouteParams` and `getRouteItem` are the synchronous, non-hook equivalents. Use them outside React components — for example, inside service classes or event handlers.
+
+```tsx
+import { getRouteParams, getRouteItem } from 'react-declarative';
+
+// In a service or event handler:
+const params = getRouteParams(routes, window.location.pathname);
+// { id: '42' }
+
+const matchedRoute = getRouteItem(routes, window.location.pathname);
+// The ISwitchItem that matched
+```
+
+`parseRouteUrl` checks whether a pathname matches a given path pattern and returns the extracted params or `null`:
+
+```tsx
+import { parseRouteUrl } from 'react-declarative';
+
+const params = parseRouteUrl('/ticket/:id/card', '/ticket/42/card');
+// { id: '42' }
+
+const noMatch = parseRouteUrl('/ticket/:id/card', '/dashboard');
+// null
+```
+
+## Nested routing with `OutletView`
+
+For views that contain their own sub-navigation (a detail page with tabs for "Data", "Files", "Settings"), use `OutletView`. It renders one sub-route at a time and handles transitions between them.
+
+```tsx
+import { OutletView } from 'react-declarative';
+
+const UserDetailPage = ({ history }) => (
+  <OutletView
+    history={history}
+    routes={[
+      {
+        id: 'card',
+        isActive: (pathname) => !!parseRouteUrl('/users/:id/card', pathname),
+        element: UserCardView,
+      },
+      {
+        id: 'files',
+        isActive: (pathname) => !!parseRouteUrl('/users/:id/files', pathname),
+        element: UserFilesView,
+      },
+    ]}
+  />
+);
+```
+
+Navigate between outlets with `history.replace`:
+
+```tsx
+history.replace(`/users/${id}/files`);
+```
+
+## Works alongside react-router
+
+`<Switch />` is not tied to react-router. It works with any `history` object from the [`history`](https://www.npmjs.com/package/history) package — `createBrowserHistory`, `createHashHistory`, or `createMemoryHistory`. If your application already uses react-router, you can use `<Switch />` in a section of the app that does not need react-router's features, or replace react-router entirely.
+
+<Tip>
+  The demo application in the library source (`demo/src/App.tsx`) uses
+  `<Switch />` alongside `<Scaffold />` to build a full navigation shell. It is
+  a good reference for how guards, redirects, and the history object fit
+  together.
+</Tip>

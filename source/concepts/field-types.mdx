@@ -1,0 +1,254 @@
+---
+title: "Field types: complete FieldType enum guide with examples"
+description: "All FieldType enum values in react-declarative — input, toggle, numeric, display, and special types — with code examples for the most commonly used ones."
+---
+
+The `FieldType` enum is the vocabulary of react-declarative. Every object in your `TypedField[]` schema must have a `type` property set to one of these values, and that choice determines which Material UI widget renders, which props become available, and how the value is stored in your data object. The sections below group every enum member by purpose and show practical examples for the most common types.
+
+## Complete enum reference
+
+<AccordionGroup>
+  <Accordion title="Input fields — Text, Combo, Choose, Items, Complete, Dict, Tree">
+    These fields accept user input and write a value back to the data object under the field's `name` key.
+
+    | Enum value | String key | What renders |
+    |---|---|---|
+    | `FieldType.Text` | `'text-field'` | MUI TextField — supports multiline, input masking, icons |
+    | `FieldType.Combo` | `'combo-field'` | Single-select autocomplete dropdown |
+    | `FieldType.Choose` | `'choose-field'` | Read-only text field that opens a modal picker via a `choose` callback |
+    | `FieldType.Items` | `'items-field'` | Multi-select chip input (like Autocomplete with multiple) |
+    | `FieldType.Complete` | `'complete-field'` | Free-text field with autocomplete suggestions from a `tip` callback |
+    | `FieldType.Dict` | `'dict-field'` | Searchable dictionary/lookup field backed by a paginated `dictSearch` callback |
+    | `FieldType.Tree` | `'tree-field'` | Tree-structured picker using an `itemTree` node array |
+  </Accordion>
+
+  <Accordion title="Toggle fields — Checkbox, Switch, YesNo, Radio">
+    These fields render boolean or discrete-choice controls and store their selected value under `name`.
+
+    | Enum value | String key | What renders |
+    |---|---|---|
+    | `FieldType.Checkbox` | `'checkbox-field'` | Standard MUI Checkbox |
+    | `FieldType.Switch` | `'switch-field'` | MUI Toggle Switch; supports `switchActiveLabel` for a second label when on |
+    | `FieldType.YesNo` | `'yesno-field'` | Button-group style yes/no selector; value translatable via `tr` |
+    | `FieldType.Radio` | `'radio-field'` | Radio button; use the same `name` for multiple radios and set `radioValue` on each |
+  </Accordion>
+
+  <Accordion title="Numeric / Range — Slider, Rating, Progress">
+    These fields display or collect numeric values.
+
+    | Enum value | String key | What renders |
+    |---|---|---|
+    | `FieldType.Slider` | `'slider-field'` | MUI Slider; configure with `minSlider`, `maxSlider`, `stepSlider` |
+    | `FieldType.Rating` | `'rating-field'` | MUI Rating stars; stores a number under `name` |
+    | `FieldType.Progress` | `'progress-field'` | Read-only progress bar driven by the current data value; use `maxPercent` |
+  </Accordion>
+
+  <Accordion title="Date / Time — Date, Time">
+    | Enum value | String key | What renders |
+    |---|---|---|
+    | `FieldType.Date` | `'date-field'` | Date picker; use `datetime.currentDate()` as `defaultValue` |
+    | `FieldType.Time` | `'time-field'` | Time picker; use `datetime.currentTime()` as `defaultValue` |
+  </Accordion>
+
+  <Accordion title="Display — Typography, Line, Button, Icon, Component">
+    These fields do not collect input. They render UI chrome or custom React content.
+
+    | Enum value | String key | What renders |
+    |---|---|---|
+    | `FieldType.Typography` | `'typography-field'` | MUI Typography; set `typoVariant` (`h1`–`h6`, `body1`, `caption`, …) and `placeholder` for text |
+    | `FieldType.Line` | `'line-field'` | Horizontal divider with an optional `title` label |
+    | `FieldType.Button` | `'button-field'` | MUI Button; configure `buttonVariant`, `buttonSize`, `buttonColor`, `icon` |
+    | `FieldType.Icon` | `'icon-field'` | Standalone icon; configure `icon`, `iconSize`, `iconColor`, `iconBackground` |
+    | `FieldType.Component` | `'component-field'` | Injects any React component via the `element` prop; receives the full data object as props |
+  </Accordion>
+
+  <Accordion title="Special — File, Init, Phony">
+    | Enum value | String key | What renders |
+    |---|---|---|
+    | `FieldType.File` | `'file-field'` | File upload; configure `fileAccept`, `upload` (async upload callback), `view` |
+    | `FieldType.Init` | `'init-field'` | Invisible field; its `compute` callback runs once on mount to set initial derived values |
+    | `FieldType.Phony` | `'phony-field'` | Invisible field with no UI; use to compute derived values on every data change without rendering anything |
+  </Accordion>
+</AccordionGroup>
+
+## Code examples
+
+### Text field with input masking and validation
+
+`FieldType.Text` is the workhorse of most forms. Use `inputType` to hint the keyboard on mobile, `inputFormatterTemplate` to mask input, and `isInvalid` to validate.
+
+```typescript
+import { TypedField, FieldType } from 'react-declarative';
+import { Email } from '@mui/icons-material';
+
+interface FormData {
+  email: string;
+  phone: string;
+}
+
+const fields: TypedField<FormData>[] = [
+  {
+    type: FieldType.Text,
+    name: 'email',
+    title: 'Email address',
+    inputType: 'email',
+    inputAutocomplete: 'on',
+    trailingIcon: Email,
+    isInvalid({ email }) {
+      const expr = /^[\w-.]+@([\w-]+\.)+[\w-]{2,4}$/g;
+      if (!expr.test(email)) {
+        return 'Invalid email address';
+      }
+      return null;
+    },
+  },
+  {
+    type: FieldType.Text,
+    name: 'phone',
+    title: 'Phone number',
+    inputType: 'tel',
+    // Masks input as: 8999-123-456
+    inputFormatterTemplate: '####-###-###',
+    inputFormatterSymbol: '#',
+    inputFormatterAllowed: /^[0-9]/,
+  },
+];
+```
+
+### Combo field with async item list and translations
+
+`FieldType.Combo` renders a single-select autocomplete. Supply `itemList` as an array or an async function. Use `tr` to translate opaque keys into human-readable labels.
+
+```typescript
+const fields: TypedField[] = [
+  {
+    type: FieldType.Combo,
+    name: 'gender',
+    title: 'Gender',
+    description: 'Select your gender',
+    async itemList() {
+      // Fetch options from your API
+      return ['male-key', 'female-key', 'other-key'];
+    },
+    async tr(current) {
+      const labels: Record<string, string> = {
+        'male-key': 'Male',
+        'female-key': 'Female',
+        'other-key': 'Other',
+      };
+      return labels[current] ?? current;
+    },
+    defaultValue: 'male-key',
+  },
+];
+```
+
+<Tip>
+Set `freeSolo: true` on `FieldType.Combo` or `FieldType.Items` to let users type values that are not in the list.
+</Tip>
+
+### Switch field for boolean toggles
+
+`FieldType.Switch` stores `true` or `false` under `name`. Use `switchActiveLabel` to display a second label when the switch is on.
+
+```typescript
+const fields: TypedField[] = [
+  {
+    type: FieldType.Switch,
+    name: 'notifications',
+    title: 'Email notifications',
+    switchActiveLabel: 'Enabled',
+    defaultValue: true,
+  },
+  {
+    type: FieldType.Switch,
+    name: 'marketing',
+    title: 'Marketing emails',
+    defaultValue: false,
+  },
+];
+```
+
+### Radio group for mutually exclusive choices
+
+All radio buttons in the same group share the same `name`. Set a unique `radioValue` on each to determine what value gets written when that button is selected.
+
+```typescript
+const fields: TypedField[] = [
+  {
+    type: FieldType.Radio,
+    name: 'plan',
+    radioValue: 'free',
+    title: 'Free plan',
+    columns: '4',
+  },
+  {
+    type: FieldType.Radio,
+    name: 'plan',
+    radioValue: 'pro',
+    title: 'Pro plan',
+    columns: '4',
+  },
+  {
+    type: FieldType.Radio,
+    name: 'plan',
+    radioValue: 'enterprise',
+    title: 'Enterprise plan',
+    columns: '4',
+  },
+];
+```
+
+### Slider with progress display
+
+Bind a `FieldType.Progress` and a `FieldType.Slider` to the same `name` to get a live progress indicator that the user can drag.
+
+```typescript
+import { Add, Remove } from '@mui/icons-material';
+
+const fields: TypedField[] = [
+  {
+    type: FieldType.Progress,
+    name: 'completion',
+    maxPercent: 100,
+    showPercentLabel: true,
+  },
+  {
+    type: FieldType.Slider,
+    name: 'completion',
+    minSlider: 0,
+    maxSlider: 100,
+    stepSlider: 5,
+    defaultValue: 30,
+    leadingIcon: Remove,
+    leadingIconClick(value, _data, _payload, onChange) {
+      onChange(Number(value) - 5);
+    },
+    trailingIcon: Add,
+    trailingIconClick(value, _data, _payload, onChange) {
+      onChange(Number(value) + 5);
+    },
+  },
+];
+```
+
+### Custom React component
+
+Use `FieldType.Component` with the `element` prop when none of the built-in fields fit your needs. The component receives the entire current data object as props.
+
+```typescript
+const fields: TypedField[] = [
+  {
+    type: FieldType.Component,
+    element: ({ firstName, lastName }) => (
+      <div style={{ padding: 8 }}>
+        Preview: <strong>{firstName} {lastName}</strong>
+      </div>
+    ),
+  },
+];
+```
+
+<Warning>
+`FieldType.Component` elements re-render on every form change by default. Use `watchOneContext: true` to subscribe to context changes selectively, or memoize your element component to reduce renders.
+</Warning>

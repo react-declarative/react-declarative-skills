@@ -1,0 +1,61 @@
+---
+title: "react-declarative docs: schema-driven React UI library"
+description: "react-declarative builds forms, data grids, and app shells from TypedField JSON schemas. Zero manual state wiring. TypeScript IntelliSense on every field."
+---
+
+react-declarative is a TypeScript React library that turns JSON field schemas into fully functional MUI-based forms, data grids, and application shells — with zero manual state wiring. Define your UI declaratively, and the library handles rendering, validation, and state management automatically.
+
+<CardGroup cols={2}>
+  <Card title="Installation" icon="download" href="/installation">
+    Install react-declarative and its MUI peer dependencies in minutes.
+  </Card>
+  <Card title="Quick Start" icon="bolt" href="/quickstart">
+    Build your first declarative form in under five minutes.
+  </Card>
+  <Card title="Field Types" icon="list" href="/concepts/field-types">
+    Explore all 40+ field types: text, combo, date, rating, file, and more.
+  </Card>
+  <Card title="Component Reference" icon="book" href="/api/components/one">
+    Full prop reference for One, List, Scaffold2, KanbanView, and WizardView.
+  </Card>
+</CardGroup>
+
+## What you can build
+
+react-declarative is not just a form library. It provides a complete toolkit for building data-driven React applications:
+
+<CardGroup cols={2}>
+  <Card title="Forms & Validation" icon="wpforms" href="/components/one">
+    Nested grid forms with inline validation, conditional fields, and file uploads.
+  </Card>
+  <Card title="Data Grids" icon="table" href="/components/list">
+    Filterable, sortable, paginated data grids with mobile-first adaptive layout.
+  </Card>
+  <Card title="App Shells" icon="sidebar" href="/components/scaffold">
+    Material Design app shells with navigation, tabs, and action menus from config.
+  </Card>
+  <Card title="Kanban Boards" icon="columns" href="/components/kanban">
+    Drag-and-drop kanban boards with real-time column updates.
+  </Card>
+</CardGroup>
+
+## How it works
+
+<Steps>
+  <Step title="Install the library">
+    Add react-declarative and its MUI peer dependencies to your project.
+  </Step>
+  <Step title="Define a field schema">
+    Write a `TypedField[]` array describing your form fields, layouts, and validation rules.
+  </Step>
+  <Step title="Render with One or List">
+    Pass your schema to `<One />` for forms or `<List />` for data grids. State is managed automatically.
+  </Step>
+  <Step title="Connect your data">
+    Provide a `handler` function (async or sync) to load initial data, and an `onChange` callback to receive updates.
+  </Step>
+</Steps>
+
+<Tip>
+  Try react-declarative in your browser without installing anything at the [interactive playground](https://react-declarative-playground.github.io/).
+</Tip>

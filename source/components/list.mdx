@@ -1,0 +1,305 @@
+---
+title: "List component: paginated and filterable data grid"
+description: "Render paginated, sortable, filterable data grids with the List component. Configure columns, filters, actions, chips, and row menus from a JSON schema."
+---
+
+`<List />` (and its typed sibling `<ListTyped />`) is react-declarative's data grid. You configure columns with `IColumn[]`, define filter fields with the same `TypedField[]` schema used by `<One />`, attach bulk actions and per-row menus, and hand the component a `handler` function that fetches a page of rows. The grid handles pagination, sorting, chip filters, free-text search, and mobile layout adaptation automatically.
+
+## Installation
+
+```bash
+npm install --save react-declarative tss-react @mui/material @emotion/react @emotion/styled
+```
+
+## Minimal working example
+
+```tsx list-example.tsx
+import {
+  ListTyped,
+  TypedField,
+  FieldType,
+  IColumn,
+  ColumnType,
+  IListAction,
+  ActionType,
+  IListChip,
+  IListRowAction,
+} from 'react-declarative';
+
+interface IFilterData {
+  firstName: string;
+  lastName: string;
+}
+
+interface IRowData {
+  id: string;
+  firstName: string;
+  lastName: string;
+  chip1_enabled: boolean;
+}
+
+const filters: TypedField<IFilterData>[] = [
+  {
+    type: FieldType.Text,
+    name: 'firstName',
+    title: 'First name',
+  },
+  {
+    type: FieldType.Text,
+    name: 'lastName',
+    title: 'Last name',
+  },
+];
+
+const columns: IColumn<IFilterData, IRowData>[] = [
+  {
+    type: ColumnType.Text,
+    field: 'id',
+    headerName: 'ID',
+    width: (fullWidth) => Math.max(fullWidth - 650, 200),
+  },
+  {
+    type: ColumnType.Text,
+    field: 'firstName',
+    headerName: 'First name',
+    width: '200px',
+    sortable: true,
+  },
+  {
+    type: ColumnType.Text,
+    field: 'lastName',
+    headerName: 'Last name',
+    width: '200px',
+    sortable: true,
+  },
+];
+
+const actions: IListAction<IRowData>[] = [
+  {
+    type: ActionType.Add,
+    label: 'Create item',
+  },
+];
+
+const chips: IListChip<IRowData>[] = [
+  {
+    label: 'Chip 1 enabled',
+    name: 'chip1_enabled',
+    color: '#4caf50',
+  },
+];
+
+const rowActions: IListRowAction[] = [
+  {
+    label: 'Edit',
+    action: 'edit-action',
+    isVisible: ({ chip1_enabled }) => chip1_enabled,
+  },
+];
+
+export const PeoplePage = () => (
+  <ListTyped<IFilterData, IRowData>
+    withMobile
+    withSearch
+    withArrowPagination
+    filters={filters}
+    columns={columns}
+    actions={actions}
+    chips={chips}
+    rowActions={rowActions}
+    handler={async (filterData, pagination, sort, chips, search) => {
+      const res = await fetch('/api/people', {
+        method: 'POST',
+        body: JSON.stringify({ filterData, pagination, sort, chips, search }),
+      });
+      const json = await res.json();
+      // return { rows, total } for server-side pagination
+      return { rows: json.data, total: json.total };
+    }}
+    onAction={(action, selectedRows, reload) => {
+      if (action === 'add-action') openCreateDialog().then(() => reload());
+    }}
+    onRowAction={(action, row, reload) => {
+      if (action === 'edit-action') openEditDialog(row.id).then(() => reload());
+    }}
+    onRowClick={(row) => console.log('clicked', row.id)}
+  />
+);
+```
+
+## The `handler` type
+
+`ListHandler` is the central concept of the data grid. It can be a static
+array (for client-side lists) or an async function for server-side pagination:
+
+```tsx handler-types.tsx
+import { ListHandler } from 'react-declarative';
+
+// Static array — no server call, everything client-side
+const staticHandler: ListHandler<{}, IRowData> = [
+  { id: '1', name: 'Alice' },
+  { id: '2', name: 'Bob' },
+];
+
+// Async function — full signature
+const asyncHandler: ListHandler<IFilterData, IRowData> = async (
+  filterData,   // current values from the filter <One /> form
+  pagination,   // { limit: number; offset: number }
+  sort,         // IListSortItem[] e.g. [{ field: 'name', sort: 'asc' }]
+  chips,        // Record<keyof RowData, boolean>
+  search,       // free-text search string
+  payload,      // arbitrary payload prop passed to <List />
+) => {
+  const rows = await fetchRows({ filterData, pagination, sort });
+  return { rows, total: rows.length }; // total drives pagination
+};
+```
+
+<Note>
+  Return `{ rows, total }` from your handler when you want accurate page
+  counts. Return `rows[]` directly for client-side data where the grid counts
+  locally.
+</Note>
+
+## Key props
+
+<ParamField path="handler" type="ListHandler<FilterData, RowData>" required>
+  Fetches rows. Called automatically on mount and whenever filters, pagination,
+  sort, chips, or search change.
+</ParamField>
+
+<ParamField path="columns" type="IColumn<FilterData, RowData>[]" required>
+  Defines the table columns. Each column has a `type` (from `ColumnType`), an
+  optional `field` key into `RowData`, a `headerName`, and a `width` (either
+  a CSS string or a function of the available pixel width).
+</ParamField>
+
+<ParamField path="filters" type="TypedField[]">
+  A field schema (same format as `<One />`) rendered as a collapsible filter
+  panel above the grid. Filter values are passed as the first argument to
+  `handler`.
+</ParamField>
+
+<ParamField path="actions" type="IListAction<RowData>[]">
+  Buttons rendered in the grid toolbar. Each action has a `type`
+  (`ActionType.Add`, `ActionType.Menu`, etc.) and triggers `onAction` when
+  clicked.
+</ParamField>
+
+<ParamField path="operations" type="IListOperation<RowData>[]">
+  Bulk operations available when one or more rows are selected. Rendered as a
+  dropdown menu and trigger `onOperation` with the current selection.
+</ParamField>
+
+<ParamField path="chips" type="IListChip<RowData>[]">
+  Toggle chips rendered above the grid. Each chip maps to a boolean field in
+  `RowData` and its state is passed to `handler` in the `chips` argument.
+</ParamField>
+
+<ParamField path="rowActions" type="IListRowAction[]">
+  Per-row context menu items. Each action can have an `isVisible` callback
+  that receives the row data and returns whether to show it.
+</ParamField>
+
+<ParamField path="payload" type="Payload | (() => Payload)">
+  Arbitrary data forwarded to `handler`, `isVisible`/`isDisabled` callbacks on
+  actions, and filter field callbacks.
+</ParamField>
+
+<ParamField path="onAction" type="(action: string, selectedRows: RowData[], reload: (keepPagination?) => Promise<void>) => void">
+  Called when a toolbar action button is clicked. The third argument `reload`
+  refreshes the grid — call it after mutating data.
+</ParamField>
+
+<ParamField path="onRowAction" type="(action: string, row: RowData, reload) => void">
+  Called when a per-row action menu item is clicked.
+</ParamField>
+
+<ParamField path="onRowClick" type="(row: RowData, reload) => void">
+  Called when the user clicks anywhere on a row.
+</ParamField>
+
+## Column definition
+
+```tsx columns-example.tsx
+import { IColumn, ColumnType } from 'react-declarative';
+
+const columns: IColumn<{}, IRowData>[] = [
+  {
+    type: ColumnType.Text,
+    field: 'email',
+    headerName: 'Email',
+    width: '250px',
+    sortable: true,
+    // Computed value instead of direct field mapping
+    compute: (row) => row.email.toLowerCase(),
+  },
+  {
+    type: ColumnType.Text,
+    field: 'status',
+    headerName: 'Status',
+    width: '120px',
+    // Custom React component rendered in the cell
+    element: ({ status }) => <StatusBadge value={status} />,
+  },
+  {
+    type: ColumnType.Text,
+    field: 'score',
+    headerName: 'Score',
+    width: '80px',
+    phoneHidden: true,  // hidden on phone breakpoint
+    sortable: true,
+  },
+];
+```
+
+## Behaviour flags
+
+<Tabs>
+  <Tab title="withMobile">
+    Enables a mobile-friendly card layout on small screens. Columns can declare
+    `phoneOrder` and `phoneHidden` to control their appearance on phones.
+
+    ```tsx
+    <ListTyped withMobile columns={columns} ... />
+    ```
+  </Tab>
+  <Tab title="withSearch">
+    Adds a search text box to the toolbar. The typed string is passed as the
+    `search` argument to your `handler`.
+
+    ```tsx
+    <ListTyped withSearch ... />
+    ```
+  </Tab>
+  <Tab title="withArrowPagination">
+    Replaces the default numbered page pagination with simple Prev / Next arrow
+    buttons. Useful for large datasets where you do not want to expose the total
+    number of pages.
+
+    ```tsx
+    <ListTyped withArrowPagination ... />
+    ```
+  </Tab>
+  <Tab title="withToggledFilters">
+    Renders the filter panel collapsed by default. The user can expand it with
+    a toolbar button.
+
+    ```tsx
+    <ListTyped withToggledFilters ... />
+    ```
+  </Tab>
+</Tabs>
+
+## `ListTyped` vs `List`
+
+`ListTyped` is the recommended export. It enforces the `FilterData` and
+`RowData` generics at the component level, so TypeScript will catch
+mismatches between your handler return type, your columns, and your filter
+fields:
+
+```tsx
+// Both are equivalent at runtime; ListTyped is stricter at compile time
+<List<IFilterData, IRowData> ... />
+<ListTyped<IFilterData, IRowData> ... />
+```

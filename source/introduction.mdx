@@ -1,0 +1,80 @@
+---
+title: "What is react-declarative and what can you build"
+description: "react-declarative generates forms, data grids, kanban boards, and app shells from a TypedField JSON schema with automatic state management and MUI components."
+---
+
+react-declarative is a TypeScript React library that turns a `TypedField[]` JSON schema into fully functional forms, data grids, kanban boards, wizards, and application shells — without manual state wiring. You describe what you want using a JSON schema; the library handles rendering, validation, and state management automatically on top of Material UI (MUI) components.
+
+## Why react-declarative
+
+Most form libraries require you to write both a data schema and a UI schema separately. react-declarative merges them into a single `TypedField[]` array, which means less code and fewer places for data model drift to creep in.
+
+<Note>
+  The key difference from [jsonforms](https://jsonforms.io/docs/#how-does-it-work): you do **not** need a separate JSON Schema for your data model. All validations live inside the UI schema, so your backend can return partial data (PATCH-style) and the form adapts automatically.
+</Note>
+
+react-declarative scales from a single embedded form to a full CRM or ERP — the same JSON schema pattern applies to every level.
+
+## Key features
+
+<CardGroup cols={2}>
+  <Card title="Forms (One)" icon="wpforms" href="/components/one">
+    Render nested 12-column grid forms from a `TypedField[]` schema. Supports 40+ field types, inline validation, conditional visibility, and JSX injection.
+  </Card>
+  <Card title="Data grid (List)" icon="table" href="/components/list">
+    Filterable, sortable, paginated data grid with built-in mobile layout. Columns, filters, actions, and row menus are all configured from JSON.
+  </Card>
+  <Card title="App shell (Scaffold)" icon="sidebar" href="/components/scaffold">
+    Material Design app shells with navigation groups, tabs, and action menus — configured from an `IScaffold2Group[]` array, not hand-written JSX.
+  </Card>
+  <Card title="Playground" icon="play" href="https://react-declarative-playground.github.io/">
+    Try react-declarative in your browser without installing anything. Edit schemas live and see the output instantly.
+  </Card>
+</CardGroup>
+
+## What else you can build
+
+Beyond forms and grids, react-declarative ships production-ready components for the full application lifecycle:
+
+- **KanbanView** — drag-and-drop kanban boards with real-time column updates
+- **WizardView** — multi-step action wizards with MUI Stepper and nested routing
+- **VisibilityView / FeatureView** — role-based UI visibility configured from feature flags
+- **VirtualView / InfiniteView** — virtualized and infinite-scroll lists with transparent-API virtualization
+- **Async hooks** — `useSinglerunAction`, `useQueuedAction`, `useAsyncValue`, `useAsyncProgress` for managing async UI state without boilerplate
+
+## TypeScript IntelliSense
+
+Every schema array is typed through `TypedField<Data, Payload>`. Your IDE will autocomplete field property names, flag invalid `type` values, and surface validation errors at authoring time — not at runtime.
+
+```tsx
+import { TypedField, FieldType } from 'react-declarative';
+
+interface IProfile {
+  firstName: string;
+  email: string;
+  role: string;
+}
+
+const fields: TypedField<IProfile>[] = [
+  {
+    type: FieldType.Text,
+    name: 'firstName', // autocompleted from IProfile
+    title: 'First name',
+  },
+];
+```
+
+## Using with AI
+
+react-declarative schemas are structured JSON, which makes them easy for LLMs to generate. There is a documented guide in the repository for prompting GPT-4 to produce form schemas automatically — see the [docs folder](https://github.com/react-declarative/react-declarative/tree/master/docs) for details.
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Installation" icon="download" href="/installation">
+    Install the package and peer dependencies in two commands.
+  </Card>
+  <Card title="Quick start" icon="bolt" href="/quickstart">
+    Build your first form and data grid in under five minutes.
+  </Card>
+</CardGroup>

@@ -1,0 +1,225 @@
+---
+title: "Quick start: build your first form and grid"
+description: "Build a typed user profile form with One and a simple data grid with ListTyped in under five minutes using react-declarative's JSON schema approach."
+---
+
+This guide walks you through two core patterns: building a form with the `<One />` component and rendering a data grid with `<ListTyped />`. Both follow the same schema-first approach — you define the structure as a TypeScript array, and react-declarative handles the rest.
+
+<Steps>
+  <Step title="Define your data type">
+    Start by describing the shape of your data as a TypeScript interface. react-declarative uses this to type-check your field schema and give you IntelliSense on `name` values.
+
+    ```tsx
+    interface IUserProfile {
+      firstName: string;
+      lastName: string;
+      role: string;
+      birthDate: string;
+      active: boolean;
+    }
+    ```
+  </Step>
+
+  <Step title="Write the field schema">
+    Create a `TypedField<IUserProfile>[]` array. Each object in the array describes one field. The `name` property maps directly to a key on your data type, and the `type` property controls which input component renders.
+
+    ```tsx
+    import { TypedField, FieldType } from 'react-declarative';
+
+    const fields: TypedField<IUserProfile>[] = [
+      {
+        type: FieldType.Line,
+        title: 'Personal details',
+      },
+      {
+        type: FieldType.Group,
+        desktopColumns: '6',
+        tabletColumns: '12',
+        phoneColumns: '12',
+        fields: [
+          {
+            type: FieldType.Text,
+            name: 'firstName',
+            title: 'First name',
+            description: 'Enter your given name',
+          },
+          {
+            type: FieldType.Text,
+            name: 'lastName',
+            title: 'Last name',
+            description: 'Enter your family name',
+          },
+        ],
+      },
+      {
+        type: FieldType.Combo,
+        name: 'role',
+        title: 'Role',
+        description: 'Select a user role',
+        itemList: ['admin', 'editor', 'viewer'],
+      },
+      {
+        type: FieldType.Date,
+        name: 'birthDate',
+        title: 'Date of birth',
+      },
+      {
+        type: FieldType.Switch,
+        name: 'active',
+        title: 'Account active',
+      },
+    ];
+    ```
+
+    <Tip>
+      `FieldType.Group` is a layout container, not a data field. It has no `name` — it only controls column widths at different breakpoints. Fields nested inside it inherit the responsive grid settings.
+    </Tip>
+  </Step>
+
+  <Step title="Render the form with One">
+    Pass your schema to `<One />` along with a `handler` to supply initial data and an `onChange` callback to receive updates.
+
+    ```tsx
+    import React from 'react';
+    import { One, TypedField, FieldType } from 'react-declarative';
+
+    // ...fields array from Step 2...
+
+    const initialData: IUserProfile = {
+      firstName: 'Jane',
+      lastName: 'Smith',
+      role: 'editor',
+      birthDate: '1990-06-15',
+      active: true,
+    };
+
+    export function UserProfileForm() {
+      const handleChange = (data: IUserProfile) => {
+        console.log('Form data:', data);
+        // data.firstName, data.role, etc. match the `name` props in your schema
+      };
+
+      return (
+        <One<IUserProfile>
+          fields={fields}
+          handler={() => initialData}
+          onChange={handleChange}
+        />
+      );
+    }
+    ```
+
+    The `handler` prop accepts a plain object, an async function, or a promise. When the form loads, react-declarative calls `handler` and populates each field from the returned object — matching keys to `name` values in your schema.
+
+    <Note>
+      The `onChange` callback fires with the full data object every time any field changes. The keys of that object are exactly the `name` strings you set in your schema.
+    </Note>
+  </Step>
+
+  <Step title="Add a data grid with ListTyped">
+    For tabular data, use `<ListTyped />`. Define columns and a `handler` that returns rows and a total count.
+
+    ```tsx
+    import React from 'react';
+    import {
+      ListTyped,
+      TypedField,
+      FieldType,
+      IColumn,
+      ColumnType,
+      useArrayPaginator,
+    } from 'react-declarative';
+
+    interface IUser {
+      id: string;
+      firstName: string;
+      lastName: string;
+      role: string;
+    }
+
+    const rows: IUser[] = [
+      { id: '1', firstName: 'Jane', lastName: 'Smith', role: 'editor' },
+      { id: '2', firstName: 'John', lastName: 'Doe', role: 'admin' },
+      { id: '3', firstName: 'Alice', lastName: 'Lee', role: 'viewer' },
+    ];
+
+    const filters: TypedField[] = [
+      {
+        type: FieldType.Text,
+        name: 'firstName',
+        title: 'First name',
+      },
+    ];
+
+    const columns: IColumn<IUser>[] = [
+      {
+        type: ColumnType.Text,
+        field: 'firstName',
+        headerName: 'First name',
+        width: () => '200px',
+        sortable: true,
+      },
+      {
+        type: ColumnType.Text,
+        field: 'lastName',
+        headerName: 'Last name',
+        width: () => '200px',
+        sortable: true,
+      },
+      {
+        type: ColumnType.Text,
+        field: 'role',
+        headerName: 'Role',
+        width: () => '150px',
+      },
+    ];
+
+    export function UserGrid() {
+      const handler = useArrayPaginator(rows);
+
+      return (
+        <ListTyped<IUser>
+          withSearch
+          withArrowPagination
+          filters={filters}
+          columns={columns}
+          handler={handler}
+        />
+      );
+    }
+    ```
+
+    `useArrayPaginator` wraps a static array into the paginator interface that `<ListTyped />` expects. For real APIs, replace it with an async function that receives filter values, pagination, and sort state and returns `{ rows, total }`.
+  </Step>
+</Steps>
+
+## How the output data is structured
+
+Both `<One />` and `<ListTyped />` work with plain JavaScript objects. The keys of the object returned by `onChange` (for `<One />`) or by your handler (for `<ListTyped />`) correspond directly to the `name` props in your schema:
+
+```
+schema field:  { type: FieldType.Text, name: 'firstName', ... }
+data object:   { firstName: 'Jane' }
+
+schema field:  { type: FieldType.Combo, name: 'role', ... }
+data object:   { role: 'editor' }
+```
+
+There is no separate mapping step. No reducers. No form context to configure. The library derives the data shape entirely from your schema.
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Field types reference" icon="list" href="/concepts/field-types">
+    See all 40+ field types: text, combo, date, rating, file, checkbox, slider, and more.
+  </Card>
+  <Card title="Form validation" icon="circle-check" href="/guides/form-validation">
+    Add inline validation with `isInvalid`, `isDisabled`, and `isVisible` callbacks.
+  </Card>
+  <Card title="Conditional fields" icon="code-branch" href="/guides/conditional-fields">
+    Show or hide fields dynamically based on other field values.
+  </Card>
+  <Card title="Playground" icon="play" href="https://react-declarative-playground.github.io/">
+    Experiment with schemas interactively in the browser.
+  </Card>
+</CardGroup>

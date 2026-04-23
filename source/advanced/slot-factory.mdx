@@ -1,0 +1,184 @@
+---
+title: "Customizing field renderers with SlotFactory"
+description: "Swap default MUI field renderers in One and List with custom components using OneSlotFactory and ListSlotFactory. Your JSON schemas stay completely unchanged."
+---
+
+`OneSlotFactory` and `ListSlotFactory` let you swap out every field renderer that `<One />` and `<List />` use internally. You wrap your form tree with the factory component, pass your custom components as props, and the library uses them everywhere inside that subtree instead of the built-in MUI implementations. Your JSON schemas stay completely unchanged—only the visual layer is replaced.
+
+## OneSlotFactory
+
+`OneSlotFactory` accepts one prop for each field type. All props are optional; you only override the slots you want to change.
+
+```tsx
+import { OneSlotFactory, One } from "react-declarative";
+import { MyTextInput } from "./MyTextInput";
+import { MyCheckBox } from "./MyCheckBox";
+
+export const App = () => (
+  <OneSlotFactory Text={MyTextInput} CheckBox={MyCheckBox}>
+    <One fields={fields} handler={handler} onChange={handleChange} />
+  </OneSlotFactory>
+);
+```
+
+### Available slots
+
+Each slot name corresponds to a `FieldType` value. Your replacement component must accept the matching slot interface as its props.
+
+| Slot name    | Interface           | Renders when `type` is…          |
+| ------------ | ------------------- | --------------------------------- |
+| `Text`       | `ITextSlot`         | `FieldType.Text`                  |
+| `CheckBox`   | `ICheckBoxSlot`     | `FieldType.CheckBox`              |
+| `Radio`      | `IRadioSlot`        | `FieldType.Radio`                 |
+| `Combo`      | `IComboSlot`        | `FieldType.Combo`                 |
+| `Items`      | `IItemsSlot`        | `FieldType.Items`                 |
+| `Choose`     | `IChooseSlot`       | `FieldType.Choose`                |
+| `Date`       | `IDateSlot`         | `FieldType.Date`                  |
+| `Time`       | `ITimeSlot`         | `FieldType.Time`                  |
+| `Switch`     | `ISwitchSlot`       | `FieldType.Switch`                |
+| `YesNo`      | `IYesNoSlot`        | `FieldType.YesNo`                 |
+| `Slider`     | `ISliderSlot`       | `FieldType.Slider`                |
+| `Rating`     | `IRatingSlot`       | `FieldType.Rating`                |
+| `Progress`   | `IProgressSlot`     | `FieldType.Progress`              |
+| `File`       | `IFileSlot`         | `FieldType.File`                  |
+| `Dict`       | `IDictSlot`         | `FieldType.Dict`                  |
+| `Tree`       | `ITreeSlot`         | `FieldType.Tree`                  |
+| `Complete`   | `ICompleteSlot`     | `FieldType.Complete`              |
+| `Typography` | `ITypographySlot`   | `FieldType.Typography`            |
+| `Button`     | `IButtonSlot`       | `FieldType.Button`                |
+| `Icon`       | `IIconSlot`         | `FieldType.Icon`                  |
+| `Line`       | `ILineSlot`         | `FieldType.Line`                  |
+
+<Note>
+  `OneSlotFactory` merges with any outer `OneSlotFactory` in the component tree. Inner factories override outer ones, so you can layer them for section-specific overrides.
+</Note>
+
+### Writing a custom slot
+
+Your component receives the slot interface as its props. The `value` and `onChange` props are the most important ones: `value` is the current field value (already resolved by `<One />`'s state engine) and `onChange` is the callback you call when the value changes.
+
+<Steps>
+  <Step title="Define the slot interface import">
+    Import the slot interface that matches the field type you want to replace.
+
+    ```tsx
+    import { ITextSlot } from "react-declarative";
+    ```
+  </Step>
+
+  <Step title="Implement the component">
+    Use the interface as the component's props type. You must call `onChange` with the new value whenever the input changes.
+
+    ```tsx
+    import { ITextSlot } from "react-declarative";
+
+    export const MyTextInput = ({
+      value,
+      onChange,
+      title,
+      placeholder,
+      disabled,
+      readonly,
+      invalid,
+      dirty,
+      description,
+    }: ITextSlot) => (
+      <div className="my-field">
+        <label>{title}</label>
+        <input
+          value={String(value ?? "")}
+          placeholder={placeholder}
+          disabled={disabled || readonly}
+          onChange={(e) => onChange(e.target.value)}
+        />
+        {dirty && invalid && (
+          <span className="error">{invalid}</span>
+        )}
+        {description && <span className="hint">{description}</span>}
+      </div>
+    );
+    ```
+  </Step>
+
+  <Step title="Register the slot">
+    Pass your component to `OneSlotFactory` and wrap your form.
+
+    ```tsx
+    import { OneSlotFactory, One } from "react-declarative";
+    import { MyTextInput } from "./MyTextInput";
+
+    export const ProfileForm = () => (
+      <OneSlotFactory Text={MyTextInput}>
+        <One fields={profileFields} handler={fetchProfile} />
+      </OneSlotFactory>
+    );
+    ```
+  </Step>
+</Steps>
+
+### Common slot props
+
+All slot interfaces share a core set of props that `<One />` passes automatically. You do not need to thread these through manually.
+
+<AccordionGroup>
+  <Accordion title="value / onChange">
+    `value` holds the current field value. `onChange(newValue)` commits the change back to the form state engine. You must call `onChange` for the form to stay consistent.
+  </Accordion>
+  <Accordion title="disabled / readonly">
+    `disabled` prevents interaction entirely. `readonly` prevents editing but allows focus and copy. Both come from `isDisabled` / `isReadonly` field config callbacks.
+  </Accordion>
+  <Accordion title="invalid / incorrect / dirty">
+    `invalid` is the string returned by `isInvalid`. `incorrect` is the string returned by `isIncorrect`. `dirty` is `true` only after the user has touched the field—use it to gate error display so errors don't flash on initial render.
+  </Accordion>
+  <Accordion title="title / placeholder / description">
+    `title` is the field label. `placeholder` is the placeholder text. `description` is the helper text shown beneath the field.
+  </Accordion>
+  <Accordion title="loading">
+    `true` while the form's async `handler` is still resolving. Show a skeleton or spinner instead of an interactive control.
+  </Accordion>
+</AccordionGroup>
+
+## ListSlotFactory
+
+`ListSlotFactory` works the same way for `<List />` columns. You replace the action buttons, row renderers, and header cells that the grid uses.
+
+```tsx
+import { ListSlotFactory, List } from "react-declarative";
+import { MyBodyRow } from "./MyBodyRow";
+
+export const ContactList = () => (
+  <ListSlotFactory BodyRow={MyBodyRow}>
+    <List
+      columns={columns}
+      handler={fetchContacts}
+    />
+  </ListSlotFactory>
+);
+```
+
+<Note>
+  Slot overrides for `<List />` follow the same merge-with-outer-factory rule as `OneSlotFactory`.
+</Note>
+
+## Using a pre-built theme
+
+If your goal is a visual redesign rather than custom business logic, `react-declarative-mantine` provides a complete `<OneSlotFactory />` with all fields rebuilt using [Mantine](https://mantine.dev/) components. Install it and wrap your app—your JSON schemas work without any changes.
+
+```bash
+npm install react-declarative-mantine
+```
+
+```tsx
+import { MantineSlotFactory } from "react-declarative-mantine";
+import { One } from "react-declarative";
+
+export const App = () => (
+  <MantineSlotFactory>
+    <One fields={fields} handler={handler} />
+  </MantineSlotFactory>
+);
+```
+
+<Tip>
+  Preview the Mantine theme at [react-declarative-mantine.github.io](https://react-declarative-mantine.github.io/) before installing.
+</Tip>

@@ -1,0 +1,294 @@
+---
+title: "WizardView: multi-step forms with MUI Stepper routing"
+description: "Build multi-step wizard flows with WizardView. Define IWizardStep and IWizardOutlet arrays, then use WizardContainer and WizardNavigation for each step."
+---
+
+`<WizardView />` combines a Material UI stepper with a nested router outlet, letting you build multi-step flows where each step is a full page component. You define steps as `IWizardStep[]` (what appears in the stepper) and routes as `IWizardOutlet[]` (which component renders when a given path is active). Navigation between steps is done programmatically via `history.replace()` so deep-linking and browser Back work out of the box.
+
+## Installation
+
+```bash
+npm install --save react-declarative tss-react @mui/material @emotion/react @emotion/styled
+```
+
+## Complete example
+
+<Steps>
+  <Step title="Define your steps and routes">
+    Steps appear in the stepper header. Routes map URL paths to step components.
+
+    ```tsx wizard-config.ts
+    import { IWizardStep, IWizardOutlet, parseRouteUrl } from 'react-declarative';
+    import { SelectFileView } from './steps/SelectFileView';
+    import { ValidateFileView } from './steps/ValidateFileView';
+    import { ImportFileView } from './steps/ImportFileView';
+
+    export const steps: IWizardStep[] = [
+      { id: 'select',   label: 'Choose file' },
+      { id: 'validate', label: 'Validation' },
+      { id: 'import',   label: 'Import' },
+    ];
+
+    export const routes: IWizardOutlet[] = [
+      {
+        id: 'select',
+        element: SelectFileView,
+        isActive: (pathname) => !!parseRouteUrl('/select-file', pathname),
+      },
+      {
+        id: 'validate',
+        element: ValidateFileView,
+        isActive: (pathname) => !!parseRouteUrl('/validate-file', pathname),
+      },
+      {
+        id: 'import',
+        element: ImportFileView,
+        isActive: (pathname) => !!parseRouteUrl('/import-file', pathname),
+      },
+    ];
+    ```
+  </Step>
+
+  <Step title="Render WizardView">
+    Pass `steps`, `routes`, and the current `pathname`. The wizard activates
+    whichever outlet's `isActive` returns `true` for the given path.
+
+    ```tsx ImportWizard.tsx
+    import { WizardView } from 'react-declarative';
+    import { steps, routes } from './wizard-config';
+
+    export const ImportWizard = () => (
+      <WizardView
+        pathname="/select-file"
+        steps={steps}
+        routes={routes}
+      />
+    );
+    ```
+  </Step>
+
+  <Step title="Implement each step component">
+    Each outlet element receives `IWizardOutletProps` which includes a
+    `history` object for programmatic navigation. Wrap your content in
+    `WizardContainer` and pass a `WizardNavigation` to the `Navigation` slot.
+
+    ```tsx SelectFileView.tsx
+    import {
+      WizardContainer,
+      WizardNavigation,
+      IWizardOutletProps,
+    } from 'react-declarative';
+
+    export const SelectFileView = ({ history }: IWizardOutletProps) => {
+      const [file, setFile] = React.useState<File | null>(null);
+
+      return (
+        <WizardContainer
+          Navigation={
+            <WizardNavigation
+              hasNext={!!file}
+              onNext={() => history.replace('/validate-file')}
+            />
+          }
+        >
+          <input
+            type="file"
+            onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+          />
+        </WizardContainer>
+      );
+    };
+    ```
+
+    ```tsx ValidateFileView.tsx
+    import {
+      WizardContainer,
+      WizardNavigation,
+      IWizardOutletProps,
+    } from 'react-declarative';
+
+    export const ValidateFileView = ({ history }: IWizardOutletProps) => (
+      <WizardContainer
+        Navigation={
+          <WizardNavigation
+            hasPrev
+            hasNext
+            onPrev={() => history.replace('/select-file')}
+            onNext={() => history.replace('/import-file')}
+          />
+        }
+      >
+        <p>Validating your file…</p>
+      </WizardContainer>
+    );
+    ```
+  </Step>
+</Steps>
+
+## Key props — `WizardView`
+
+<ParamField path="steps" type="IWizardStep[]" required>
+  The ordered list of steps shown in the MUI Stepper header. Each step has an
+  `id`, an optional `label`, and an optional `icon`.
+</ParamField>
+
+<ParamField path="routes" type="IWizardOutlet[]" required>
+  Maps URL pathnames to step components. Each outlet's `isActive` function
+  receives the current `pathname` and returns `true` when that step should
+  render.
+</ParamField>
+
+<ParamField path="pathname" type="string">
+  The currently active path. When you manage routing externally (e.g. React
+  Router), sync this prop from `location.pathname`. If omitted, the wizard
+  manages its own internal history.
+</ParamField>
+
+<ParamField path="history" type="History">
+  A custom history object. Pass your router's history instance to integrate
+  with React Router or a similar library.
+</ParamField>
+
+<ParamField path="onNavigate" type="(update: Update) => void">
+  Called whenever the wizard's internal history changes. Use this to sync the
+  browser URL when running the wizard inside a larger router.
+</ParamField>
+
+<ParamField path="withScroll" type="boolean">
+  Wraps the step content in a scrollable container. Useful for long-form step
+  views that might exceed the viewport height.
+</ParamField>
+
+<ParamField path="outlinePaper" type="boolean">
+  Renders the step content area with an outlined paper background rather than
+  elevated.
+</ParamField>
+
+## `WizardNavigation` props
+
+`WizardNavigation` renders the Prev / Next button row. Place it in the
+`Navigation` slot of `WizardContainer`.
+
+<ParamField path="hasPrev" type="boolean">
+  Enables the Prev button. Pass `false` (default) on the first step.
+</ParamField>
+
+<ParamField path="hasNext" type="boolean">
+  Enables the Next button. Pass `false` (default) on the last step, or when
+  the step's required input is not yet complete.
+</ParamField>
+
+<ParamField path="onPrev" type="() => void | Promise<void>">
+  Called when the user clicks Prev. Call `history.replace('/previous-path')`
+  inside this handler.
+</ParamField>
+
+<ParamField path="onNext" type="() => void | Promise<void>">
+  Called when the user clicks Next. Can be async — the button shows a loading
+  indicator while the promise is pending and prevents double-clicks.
+</ParamField>
+
+<ParamField path="labelPrev" type="string">
+  Label for the Prev button. Defaults to `"Prev"`.
+</ParamField>
+
+<ParamField path="labelNext" type="string">
+  Label for the Next button. Defaults to `"Next"`.
+</ParamField>
+
+## Programmatic navigation
+
+Each outlet component receives a `history` object in its props. Call
+`history.replace()` to move between steps without adding an entry to the
+browser history stack, or `history.push()` to allow the user to go Back:
+
+```tsx programmatic-nav.tsx
+import { IWizardOutletProps, WizardContainer, WizardNavigation } from 'react-declarative';
+
+export const StepOne = ({ history }: IWizardOutletProps) => {
+  const handleNext = async () => {
+    // Perform async validation before advancing
+    const ok = await validateStep();
+    if (ok) {
+      history.replace('/step-two');
+    }
+  };
+
+  return (
+    <WizardContainer
+      Navigation={
+        <WizardNavigation
+          hasNext
+          onNext={handleNext}
+          labelNext="Validate & continue"
+        />
+      }
+    >
+      <StepOneForm />
+    </WizardContainer>
+  );
+};
+```
+
+## Conditional step visibility
+
+Use `isVisible` on an `IWizardStep` to hide steps from the stepper header
+based on your payload (e.g. user role or previous step choices):
+
+```tsx conditional-steps.tsx
+import { IWizardStep } from 'react-declarative';
+
+interface IWizardPayload {
+  needsApproval: boolean;
+}
+
+const steps: IWizardStep<IWizardPayload>[] = [
+  { id: 'details',  label: 'Details' },
+  {
+    id: 'approval',
+    label: 'Approval',
+    isVisible: (payload) => payload.needsApproval,
+  },
+  { id: 'confirm',  label: 'Confirm' },
+];
+```
+
+<Note>
+  Hiding a step with `isVisible` removes it from the stepper UI but does not
+  prevent navigation to its route. Guard the corresponding outlet component if
+  you want to block direct URL access.
+</Note>
+
+## Nested routing integration
+
+When embedding `WizardView` inside an existing React Router setup, pass your
+router's `history` instance and listen to `onNavigate` to keep the browser URL
+in sync:
+
+```tsx router-integration.tsx
+import { useHistory, useLocation } from 'react-router-dom';
+import { WizardView } from 'react-declarative';
+
+export const ImportWizardPage = () => {
+  const history = useHistory();
+  const location = useLocation();
+
+  return (
+    <WizardView
+      pathname={location.pathname}
+      history={history}
+      onNavigate={({ location: next }) => {
+        history.replace(next.pathname);
+      }}
+      steps={steps}
+      routes={routes}
+    />
+  );
+};
+```
+
+<Tip>
+  Keep step URLs under a shared prefix (e.g. `/import/select-file`,
+  `/import/validate-file`) so that a single React Router `<Route path="/import/*" />`
+  renders the wizard without interfering with other pages.
+</Tip>

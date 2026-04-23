@@ -1,0 +1,255 @@
+---
+title: "Dependency injection with provide and inject"
+description: "Use react-declarative's IoC container to decouple API logic from UI. Register with provide, retrieve with inject, and isolate scopes with createServiceManager."
+---
+
+`react-declarative` ships a lightweight inversion-of-control (IoC) container inspired by Angular's dependency injection system. You register service classes with `provide`, retrieve them anywhere with `inject`, and optionally define `prefetch` / `unload` lifecycle hooks that the built-in router calls automatically. The container prevents you from tangling API logic directly into components, which makes larger apps significantly easier to test and maintain.
+
+## Core API
+
+Three functions handle the entire lifecycle:
+
+| Function               | What it does                                                          |
+| ---------------------- | --------------------------------------------------------------------- |
+| `provide(key, factory)` | Registers a factory function for a service key (lazy, singleton).    |
+| `inject(key)`           | Retrieves—or creates on first use—the singleton instance for a key.  |
+| `createServiceManager(name)` | Creates an isolated IoC scope that falls back to the global one. |
+
+All three are exported directly from `react-declarative`.
+
+## Defining a service class
+
+A service is any plain class. Implement the `IService` interface if you want lifecycle hooks.
+
+```typescript
+import { IService } from "react-declarative";
+
+export class ApiService implements IService {
+  private baseUrl = "/api/v1";
+
+  async getUser(id: string) {
+    const res = await fetch(`${this.baseUrl}/users/${id}`);
+    return res.json();
+  }
+
+  async prefetch() {
+    // Called when the route that uses this service is entered.
+    // Use this to warm caches, open WebSocket connections, etc.
+    await this.getUser("me");
+  }
+
+  async unload() {
+    // Called when the route is left.
+    // Clean up subscriptions, close connections, etc.
+  }
+}
+```
+
+## Registering services
+
+Call `provide` at the module level—before any component renders. Use a symbol as the key to avoid naming collisions.
+
+```typescript
+// ioc/TYPES.ts
+export const TYPES = {
+  apiService: Symbol("apiService"),
+  authService: Symbol("authService"),
+} as const;
+
+// ioc/config.ts
+import { provide } from "react-declarative";
+import { TYPES } from "./TYPES";
+import { ApiService } from "./ApiService";
+import { AuthService } from "./AuthService";
+
+provide(TYPES.apiService, () => new ApiService());
+provide(TYPES.authService, () => new AuthService());
+```
+
+<Note>
+  `provide` uses a lazy singleton pattern. The factory runs the first time `inject` is called for that key—not when `provide` is called. Subsequent calls to `inject` return the same instance.
+</Note>
+
+## Injecting services into components and hooks
+
+Call `inject` anywhere outside the React render cycle—in hooks, callbacks, or module scope. The container resolves dependencies automatically.
+
+```typescript
+// ioc/ioc.ts
+import { inject } from "react-declarative";
+import { TYPES } from "./TYPES";
+import { ApiService } from "./ApiService";
+import { AuthService } from "./AuthService";
+
+export const ioc = {
+  apiService: inject<ApiService>(TYPES.apiService),
+  authService: inject<AuthService>(TYPES.authService),
+};
+```
+
+Then use the `ioc` object in your components:
+
+```tsx
+import { ioc } from "./ioc/ioc";
+
+export const UserProfile = ({ id }: { id: string }) => {
+  const [user, setUser] = useState(null);
+
+  useEffect(() => {
+    ioc.apiService.getUser(id).then(setUser);
+  }, [id]);
+
+  if (!user) return null;
+  return <div>{user.name}</div>;
+};
+```
+
+## Scoped containers with createServiceManager
+
+For feature-level isolation—for example, a checkout flow that needs its own service instances separate from the global container—use `createServiceManager`.
+
+```typescript
+import { createServiceManager } from "react-declarative";
+import { CheckoutService } from "./CheckoutService";
+
+const CHECKOUT_TYPES = {
+  checkoutService: Symbol("checkoutService"),
+};
+
+const checkoutContainer = createServiceManager("checkout");
+
+checkoutContainer.provide(
+  CHECKOUT_TYPES.checkoutService,
+  () => new CheckoutService()
+);
+
+// inject first looks in the local container, then falls back to global
+const checkoutService = checkoutContainer.inject<CheckoutService>(
+  CHECKOUT_TYPES.checkoutService
+);
+```
+
+The scoped `inject` checks the local container first, then falls back to the global `serviceManager`. This lets feature modules override global services without breaking the rest of the app.
+
+## Route-level lifecycle hooks
+
+The built-in `<Switch />` router calls `prefetch` when a route is entered and `unload` when it is left. Wire them directly into your route definitions:
+
+```tsx
+import { Switch } from "react-declarative";
+import { ioc } from "./ioc/ioc";
+
+const routes = [
+  {
+    path: "/dashboard",
+    guard: async () => await ioc.authService.isAuthenticated(),
+    prefetch: async () => await ioc.apiService.prefetch(),
+    unload: async () => await ioc.apiService.unload(),
+    redirect: () => {
+      if (!ioc.authService.hasRole("user")) {
+        return "/login";
+      }
+      return null;
+    },
+  },
+];
+
+export const App = () => (
+  <Switch history={history} items={routes} />
+);
+```
+
+<Tip>
+  You can also call `serviceManager.prefetch()` and `serviceManager.unload()` manually if you use a different router. They iterate all registered services and call their `prefetch` / `unload` methods in dependency-resolution order.
+</Tip>
+
+## Full example: separating API calls from components
+
+<Steps>
+  <Step title="Define the service">
+    ```typescript
+    // services/ContactService.ts
+    import { IService } from "react-declarative";
+
+    export interface IContact {
+      id: string;
+      name: string;
+      email: string;
+    }
+
+    export class ContactService implements IService {
+      private cache: IContact[] = [];
+
+      async findAll(): Promise<IContact[]> {
+        const res = await fetch("/api/v1/contacts");
+        this.cache = await res.json();
+        return this.cache;
+      }
+
+      async findById(id: string): Promise<IContact | undefined> {
+        return this.cache.find((c) => c.id === id);
+      }
+
+      async prefetch() {
+        await this.findAll();
+      }
+
+      async unload() {
+        this.cache = [];
+      }
+    }
+    ```
+  </Step>
+
+  <Step title="Register and export">
+    ```typescript
+    // ioc/config.ts
+    import { provide } from "react-declarative";
+    import { ContactService } from "../services/ContactService";
+
+    export const TYPES = {
+      contactService: Symbol("contactService"),
+    };
+
+    provide(TYPES.contactService, () => new ContactService());
+
+    // ioc/ioc.ts
+    import { inject } from "react-declarative";
+    import { TYPES } from "./config";
+    import type { ContactService } from "../services/ContactService";
+
+    export const ioc = {
+      contactService: inject<ContactService>(TYPES.contactService),
+    };
+    ```
+  </Step>
+
+  <Step title="Use in a component">
+    The component has no knowledge of fetch URLs or caching—that lives entirely in the service layer.
+
+    ```tsx
+    // components/ContactList.tsx
+    import { ioc } from "../ioc/ioc";
+
+    export const ContactList = () => {
+      const [contacts, setContacts] = useState([]);
+
+      useEffect(() => {
+        ioc.contactService.findAll().then(setContacts);
+      }, []);
+
+      return (
+        <ul>
+          {contacts.map((c) => (
+            <li key={c.id}>{c.name} — {c.email}</li>
+          ))}
+        </ul>
+      );
+    };
+    ```
+  </Step>
+</Steps>
+
+<Warning>
+  Avoid calling `serviceManager.clear()` in production unless you intend to tear down every registered service—it resets the entire container including all singletons.
+</Warning>

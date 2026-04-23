@@ -1,0 +1,323 @@
+---
+title: "One component: schema-driven forms with auto state"
+description: "Build typed forms from a TypedField array with the One component. Handles layout, validation, async data loading, and state management automatically."
+---
+
+`<One />` is the core form-building component in react-declarative. You describe your form as a plain JavaScript array of field objects (`TypedField[]`), pass it to the component, and the library handles layout, validation, state diffing, and change callbacks for you. Every field can be conditionally visible, disabled, or invalid based on the current form data — all declared inline without extra state management on your side.
+
+## Installation
+
+```bash
+npm install --save react-declarative tss-react @mui/material @emotion/react @emotion/styled
+```
+
+## Minimal working example
+
+<CodeGroup>
+
+```tsx basic-form.tsx
+import { One, TypedField, FieldType } from 'react-declarative';
+
+interface IUserData {
+  firstName: string;
+  lastName: string;
+  email: string;
+}
+
+const fields: TypedField<IUserData>[] = [
+  {
+    type: FieldType.Line,
+    title: 'User info',
+  },
+  {
+    type: FieldType.Text,
+    name: 'firstName',
+    title: 'First name',
+    defaultValue: '',
+  },
+  {
+    type: FieldType.Text,
+    name: 'lastName',
+    title: 'Last name',
+    defaultValue: '',
+  },
+  {
+    type: FieldType.Text,
+    name: 'email',
+    title: 'Email address',
+    defaultValue: '',
+  },
+];
+
+export const UserForm = () => (
+  <One<IUserData>
+    fields={fields}
+    handler={() => ({ firstName: '', lastName: '', email: '' })}
+    onChange={(data, initial) => {
+      if (!initial) console.log('form changed', data);
+    }}
+  />
+);
+```
+
+```tsx with-payload.tsx
+import { One, TypedField, FieldType } from 'react-declarative';
+
+interface IUserData {
+  phone: string;
+}
+
+interface IPayload {
+  showPhone: boolean;
+}
+
+const fields: TypedField<IUserData, IPayload>[] = [
+  {
+    type: FieldType.Text,
+    name: 'phone',
+    title: 'Phone',
+    isVisible: (data, payload) => payload.showPhone,
+  },
+];
+
+export const PhoneForm = ({ showPhone }: { showPhone: boolean }) => (
+  <One<IUserData, IPayload>
+    fields={fields}
+    handler={() => ({ phone: '' })}
+    payload={{ showPhone }}
+    onChange={(data) => console.log(data)}
+  />
+);
+```
+
+</CodeGroup>
+
+## Key props
+
+<ParamField path="fields" type="TypedField[]" required>
+  The schema that describes every field and layout in the form. Each entry is a
+  plain object with a `type` (from `FieldType`) plus field-specific options
+  such as `name`, `title`, `defaultValue`, and validation callbacks.
+</ParamField>
+
+<ParamField path="handler" type="Data | ((payload) => Data | Promise<Data>) | null">
+  Provides the initial data for the form. You can pass a plain object, a
+  synchronous function, or an async function that fetches data from an API.
+  The result is merged into the form state on mount (and on `reloadSubject`
+  emission).
+</ParamField>
+
+<ParamField path="onChange" type="(data: Data, initial: boolean) => void">
+  Called every time any field value changes. The second argument `initial` is
+  `true` during the first render cycle when the form is populated from
+  `handler` — use this flag to skip saving on the first load.
+</ParamField>
+
+<ParamField path="payload" type="Payload | (() => Payload)">
+  An arbitrary object passed through to every field callback (`isVisible`,
+  `isDisabled`, `isInvalid`, etc.). Use it to carry contextual data such as
+  user roles or feature flags without putting them in the form data itself.
+</ParamField>
+
+<ParamField path="data" type="Data | null">
+  An alternative to `handler` for controlled usage. Pass the current value
+  from React state and update it in `onChange`. Prefer `handler` for async
+  data loading.
+</ParamField>
+
+<ParamField path="dirty" type="boolean">
+  When `true`, validation errors are shown immediately on all fields without
+  waiting for the user to focus each one. Useful when you want to validate on
+  submit.
+</ParamField>
+
+<ParamField path="readonly" type="boolean">
+  Puts every field into read-only mode. The form still renders with values but
+  no input is accepted.
+</ParamField>
+
+<ParamField path="disabled" type="boolean">
+  Disables all inputs across the entire form.
+</ParamField>
+
+<ParamField path="fieldDebounce" type="number">
+  Debounce delay in milliseconds applied to `FieldType.Text` fields before
+  `onChange` fires. Defaults to no debounce. Set to `500` or higher to reduce
+  the number of change events during rapid typing.
+</ParamField>
+
+## Field-level callbacks
+
+Each field object in your `TypedField[]` array can declare three lifecycle
+callbacks that receive the current form data and the payload. All three can
+return a `boolean` or a `Promise<boolean>`.
+
+```tsx field-callbacks.tsx
+import { TypedField, FieldType } from 'react-declarative';
+
+interface IFormData {
+  email: string;
+  visible: boolean;
+  disabled: boolean;
+}
+
+const fields: TypedField<IFormData>[] = [
+  {
+    type: FieldType.Text,
+    name: 'email',
+    title: 'Email',
+    isInvalid({ email }) {
+      const expr = /^[\w-.]+@([\w-]+\.)+[\w-]{2,4}$/g;
+      if (!expr.test(email)) {
+        return 'Invalid email address';
+      }
+      return null;
+    },
+    isDisabled({ disabled }) {
+      return disabled;
+    },
+    isVisible({ visible }) {
+      return visible;
+    },
+  },
+  {
+    type: FieldType.Switch,
+    name: 'visible',
+    title: 'Show email field',
+    defaultValue: true,
+  },
+  {
+    type: FieldType.Switch,
+    name: 'disabled',
+    title: 'Disable email field',
+    defaultValue: false,
+  },
+];
+```
+
+<Note>
+  `isInvalid` should return a **string** with the error message when validation
+  fails, or `null` when the value is valid. The string is displayed as a helper
+  text below the field.
+</Note>
+
+## Layout types
+
+`TypedField` entries with layout types (`FieldType.Group`, `FieldType.Paper`,
+`FieldType.Expansion`, etc.) accept a nested `fields` array, letting you build
+responsive 12-column grid layouts:
+
+```tsx layout-fields.tsx
+import { TypedField, FieldType } from 'react-declarative';
+
+const fields: TypedField[] = [
+  {
+    type: FieldType.Group,
+    phoneColumns: '12',
+    tabletColumns: '6',
+    desktopColumns: '4',
+    fields: [
+      {
+        type: FieldType.Text,
+        name: 'firstName',
+        title: 'First name',
+      },
+      {
+        type: FieldType.Text,
+        name: 'lastName',
+        title: 'Last name',
+      },
+    ],
+  },
+];
+```
+
+## Typed variant: `OneTyped`
+
+`OneTyped` is a stricter wrapper around `One` that enforces the generic type
+parameter at the component level, making it impossible to pass incompatible
+field schemas:
+
+```tsx one-typed.tsx
+import { OneTyped, TypedField, FieldType } from 'react-declarative';
+
+interface IFormData {
+  username: string;
+}
+
+const fields: TypedField<IFormData>[] = [
+  {
+    type: FieldType.Text,
+    name: 'username',
+    title: 'Username',
+  },
+];
+
+// TypeScript will error if fields do not match IFormData
+export const UsernameForm = () => (
+  <OneTyped<IFormData>
+    fields={fields}
+    handler={() => ({ username: '' })}
+    onChange={(data) => console.log(data.username)}
+  />
+);
+```
+
+<Tip>
+  Use `OneTyped` in new projects — the stricter generics catch schema mismatches
+  at compile time rather than at runtime.
+</Tip>
+
+## Async data loading
+
+The `handler` prop accepts an async function, so you can fetch initial form
+data from an API without any extra `useEffect` or loading state:
+
+```tsx async-handler.tsx
+import { One, TypedField, FieldType } from 'react-declarative';
+
+interface IProfile {
+  bio: string;
+  website: string;
+}
+
+const fields: TypedField<IProfile>[] = [
+  { type: FieldType.Text, name: 'bio', title: 'Bio' },
+  { type: FieldType.Text, name: 'website', title: 'Website' },
+];
+
+export const ProfileForm = ({ userId }: { userId: string }) => (
+  <One<IProfile>
+    fields={fields}
+    handler={async () => {
+      const res = await fetch(`/api/profile/${userId}`);
+      return res.json();
+    }}
+    onChange={(data, initial) => {
+      if (!initial) saveProfile(userId, data);
+    }}
+    fallback={(e) => console.error('Failed to load profile', e)}
+  />
+);
+```
+
+## Injecting custom JSX
+
+Use `FieldType.Component` to embed any React component directly inside the
+form schema without breaking the layout grid:
+
+```tsx custom-component.tsx
+import { TypedField, FieldType } from 'react-declarative';
+
+const fields: TypedField[] = [
+  {
+    type: FieldType.Paper,
+    fields: [
+      {
+        type: FieldType.Component,
+        element: (props) => <MyCustomWidget {...props} />,
+      },
+    ],
+  },
+];
+```

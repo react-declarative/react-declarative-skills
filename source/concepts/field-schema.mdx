@@ -1,0 +1,146 @@
+---
+title: "Field schema: how TypedField[] defines your form"
+description: "The TypedField array drives every form in react-declarative. Learn field properties, the name-to-data mapping, responsive columns, and TypeScript generics."
+---
+
+Every form in react-declarative is driven by a single JavaScript array: `TypedField[]`. Instead of writing JSX for each input, you describe what you need as plain objects, and the `<One />` component renders the full UI from that description. This means your form logic lives in data you can inspect, transform, and reuse — not scattered across component trees.
+
+## The shape of a field object
+
+Each entry in the `fields` array is a plain object with a required `type` property drawn from the `FieldType` enum. All other properties are optional and depend on the type you choose.
+
+```typescript
+import { TypedField, FieldType } from 'react-declarative';
+
+const fields: TypedField[] = [
+  {
+    type: FieldType.Text,   // required — determines which widget renders
+    name: 'firstName',      // maps to the key in your data object
+    title: 'First name',    // label shown above the input
+    description: 'Your legal first name', // helper text shown below
+    defaultValue: '',       // value used when handler returns nothing for this key
+  },
+];
+```
+
+The core properties shared by almost every field are:
+
+| Property | Type | Purpose |
+|---|---|---|
+| `type` | `FieldType` | Selects the widget or layout to render |
+| `name` | `string` | Maps the field to a key in your data object |
+| `title` | `string` | Label displayed with the field |
+| `description` | `string` | Helper text shown below the input |
+| `defaultValue` | `Value \| ((payload) => Value)` | Initial value when the data object has no entry for this key |
+| `columns` | `string` | Column span (out of 12) at all breakpoints |
+| `phoneColumns` | `string` | Column span on phone-sized screens |
+| `tabletColumns` | `string` | Column span on tablet-sized screens |
+| `desktopColumns` | `string` | Column span on desktop-sized screens |
+
+## How `name` maps to your data
+
+The `name` property is the bridge between a field and your data object. When `<One />` reads the initial data from your `handler`, it looks up `data[field.name]` to populate each input. When the user changes a value, `onChange` receives a new data object with `data[field.name]` updated.
+
+```typescript
+// This field schema...
+const fields: TypedField[] = [
+  { type: FieldType.Text, name: 'email' },
+  { type: FieldType.Text, name: 'phone' },
+];
+
+// ...reads from and writes to objects shaped like this:
+interface FormData {
+  email: string;
+  phone: string;
+}
+```
+
+Layout types such as `FieldType.Group`, `FieldType.Paper`, and `FieldType.Expansion` do not need a `name` because they are containers — they wrap other fields but do not store values themselves.
+
+## Nesting fields inside a group
+
+Layout fields accept a `fields` array (or a single `child`) that contains the fields to render inside them. The most common layout is `FieldType.Group`, which arranges its children in a responsive grid.
+
+```typescript
+const fields: TypedField[] = [
+  {
+    type: FieldType.Group,
+    phoneColumns: '12',    // full width on phones
+    tabletColumns: '6',    // half width on tablets
+    desktopColumns: '4',   // one-third width on desktops
+    fields: [
+      {
+        type: FieldType.Text,
+        name: 'firstName',
+        title: 'First name',
+        defaultValue: 'Jane',
+      },
+      {
+        type: FieldType.Text,
+        name: 'lastName',
+        title: 'Last name',
+        defaultValue: 'Smith',
+      },
+    ],
+  },
+  {
+    type: FieldType.Text,
+    name: 'bio',
+    title: 'Short bio',
+    inputRows: 3,   // renders as a multiline textarea
+  },
+];
+```
+
+## The 12-column responsive grid
+
+react-declarative uses a 12-column grid system. The `columns`, `phoneColumns`, `tabletColumns`, and `desktopColumns` properties all accept a string that represents how many of the 12 columns the element should occupy.
+
+<Note>
+If you set only `columns`, the other three breakpoints inherit its value. Set the per-breakpoint variants only when you need different behaviour at specific screen sizes.
+</Note>
+
+```typescript
+// Full width on every screen
+{ type: FieldType.Text, name: 'bio', columns: '12' }
+
+// Responsive: stacks on mobile, side-by-side on larger screens
+{ type: FieldType.Text, name: 'firstName', phoneColumns: '12', tabletColumns: '6', desktopColumns: '4' }
+{ type: FieldType.Text, name: 'lastName',  phoneColumns: '12', tabletColumns: '6', desktopColumns: '4' }
+```
+
+## TypeScript generics: TypedField\<Data, Payload\>
+
+`TypedField` accepts two generic parameters that flow through every callback in the schema:
+
+- **`Data`** — the shape of your form's data object. Typed callbacks like `isInvalid`, `isVisible`, and `compute` receive a `Data` value, so TypeScript can tell you exactly which keys exist.
+- **`Payload`** — an extra context object you pass into `<One />` via the `payload` prop (for example, a user role or feature flags). Callbacks also receive `Payload`.
+
+```typescript
+interface ProfileData {
+  email: string;
+  role: 'admin' | 'user';
+}
+
+interface AppPayload {
+  currentUserId: string;
+}
+
+const fields: TypedField<ProfileData, AppPayload>[] = [
+  {
+    type: FieldType.Text,
+    name: 'email',
+    title: 'Email',
+    isInvalid(data, payload) {
+      // data is typed as ProfileData — full autocomplete
+      // payload is typed as AppPayload
+      if (!data.email.includes('@')) return 'Invalid email';
+      return null;
+    },
+  },
+];
+```
+
+<Tip>
+Start with `TypedField[]` (no generics) while exploring. Add the generics once you know the shape of your data — TypeScript will then catch mismatches in every field callback.
+</Tip>

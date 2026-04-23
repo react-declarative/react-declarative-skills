@@ -1,0 +1,320 @@
+---
+title: "Navigation hooks: useRouteParams and useRouteItem"
+description: "API reference for routing hooks in react-declarative: useRouteParams, useRouteItem, useLocalHistory, getRouteParams, parseRouteUrl, and toRouteUrl."
+---
+
+Navigation hooks and utilities let you integrate with the `history` library's routing model without coupling your components to a global router. You define routes as plain objects with a `path` string, pass in a `history` instance, and the hooks reactively return the matched params or item as the URL changes. The utility functions — `parseRouteUrl`, `getRouteParams`, and `toRouteUrl` — work independently of React and can be used anywhere in your application.
+
+## useRouteParams
+
+Watches the current `history` location and returns the URL parameters extracted from the first matching route. The returned object updates automatically whenever the location changes.
+
+### Signature
+
+```ts
+interface ISwitchItem {
+  path: string;
+  [key: string]: any;
+}
+
+function useRouteParams<
+  T extends Record<string, any> = Record<string, any>,
+  I extends ISwitchItem = ISwitchItem
+>(
+  routes: I[],
+  history: MemoryHistory | BrowserHistory | HashHistory
+): T | null
+```
+
+### Parameters
+
+<ParamField path="routes" type="ISwitchItem[]" required>
+  An array of route definitions. Each entry must have a `path` string that follows the `path-to-regexp` pattern syntax (e.g., `'/users/:id'`). Routes are tested in order and the first match wins.
+</ParamField>
+
+<ParamField path="history" type="MemoryHistory | BrowserHistory | HashHistory" required>
+  A `history` package instance. You can create one with `createBrowserHistory()`, `createHashHistory()`, or `createMemoryHistory()`.
+</ParamField>
+
+### Return value
+
+Returns `T | null`. The generic `T` is a record whose keys correspond to the named parameters in the matched route path. Returns `null` when no route matches the current pathname.
+
+### Usage
+
+```tsx
+import { createBrowserHistory } from 'history';
+import { useRouteParams } from 'react-declarative';
+
+const history = createBrowserHistory();
+
+const routes = [
+  { path: '/users/:userId' },
+  { path: '/posts/:postId/comments/:commentId' },
+];
+
+function Page() {
+  const params = useRouteParams<{ userId: string }>(routes, history);
+
+  if (!params) return <NotFound />;
+
+  return <UserDetail id={params.userId} />;
+}
+```
+
+---
+
+## useRouteItem
+
+Watches the current `history` location and returns the **entire matching route object** from your routes array. This is useful when your route objects carry metadata — such as page titles, required permissions, or component references — and you need to read that metadata reactively in a layout component.
+
+### Signature
+
+```ts
+function useRouteItem<
+  T extends Record<string, any> = Record<string, any>,
+  I extends ISwitchItem = ISwitchItem
+>(
+  routes: I[],
+  history: MemoryHistory | BrowserHistory | HashHistory
+): I | null
+```
+
+### Parameters
+
+<ParamField path="routes" type="I[]" required>
+  Array of route definitions. The objects can carry any additional properties beyond `path`; the full matched object is returned as-is.
+</ParamField>
+
+<ParamField path="history" type="MemoryHistory | BrowserHistory | HashHistory" required>
+  A `history` instance that the hook subscribes to for location changes.
+</ParamField>
+
+### Return value
+
+The matched route object of type `I`, or `null` when no route matches. Re-renders the component each time the location changes and produces a different match.
+
+### Usage
+
+```tsx
+import { createBrowserHistory } from 'history';
+import { useRouteItem } from 'react-declarative';
+
+const history = createBrowserHistory();
+
+interface AppRoute {
+  path: string;
+  title: string;
+  requiresAuth: boolean;
+}
+
+const routes: AppRoute[] = [
+  { path: '/',          title: 'Home',     requiresAuth: false },
+  { path: '/dashboard', title: 'Dashboard', requiresAuth: true  },
+  { path: '/settings',  title: 'Settings',  requiresAuth: true  },
+];
+
+function AppBar() {
+  const route = useRouteItem<Record<string, any>, AppRoute>(routes, history);
+
+  return (
+    <header>
+      <h1>{route?.title ?? 'Not Found'}</h1>
+    </header>
+  );
+}
+```
+
+---
+
+## useLocalHistory
+
+Creates an **in-memory `history` instance** that optionally stays synchronized with a parent history. This is useful for nested navigation contexts — for example, a modal wizard or an embedded sub-router — where you want independent forward/back navigation that mirrors the parent's pushes and replaces without affecting the browser URL directly.
+
+### Signature
+
+```ts
+function useLocalHistory(options?: {
+  history?: History;    // parent history to sync with
+  pathname?: string;    // initial pathname when no parent is provided
+  onNavigate?: (update: Update) => void;
+}): {
+  history: MemoryHistory;
+}
+```
+
+### Parameters
+
+<ParamField path="options.history" type="History">
+  A parent `history` instance to sync with. When the parent pushes or replaces a location, the local history mirrors the change. If omitted, the local history starts at `pathname` and is fully independent.
+</ParamField>
+
+<ParamField path="options.pathname" type="string" default="'/'">
+  The initial pathname for the local history. Only used when no parent `history` is provided or as a fallback if the parent has no location yet.
+</ParamField>
+
+<ParamField path="options.onNavigate" type="(update: Update) => void">
+  Called whenever the parent history navigates (push or replace). Receives the full `Update` object from the `history` package.
+</ParamField>
+
+### Return value
+
+An object with a single `history` property — a `MemoryHistory` instance you can pass to `useRouteParams`, `useRouteItem`, or any component that accepts a history prop.
+
+### Usage
+
+```tsx
+import { createBrowserHistory } from 'history';
+import { useLocalHistory, useRouteParams } from 'react-declarative';
+
+const globalHistory = createBrowserHistory();
+
+const wizardRoutes = [
+  { path: '/step/1' },
+  { path: '/step/2' },
+  { path: '/step/3' },
+];
+
+function WizardModal() {
+  const { history: localHistory } = useLocalHistory({
+    pathname: '/step/1',
+  });
+
+  const params = useRouteParams(wizardRoutes, localHistory);
+
+  const handleNext = () => localHistory.push('/step/2');
+
+  return (
+    <div>
+      <p>Current step: {params?.step ?? '1'}</p>
+      <button onClick={handleNext}>Next</button>
+    </div>
+  );
+}
+```
+
+---
+
+## parseRouteUrl
+
+Matches a URL against a `path-to-regexp` template and returns the match result, including any named parameters and the matched substring. Unlike the React hooks above, this is a plain function you can call anywhere.
+
+### Signature
+
+```ts
+function parseRouteUrl(
+  template: string,
+  url: string
+): MatchResult<object> | null
+```
+
+### Parameters
+
+<ParamField path="template" type="string" required>
+  A `path-to-regexp` compatible route pattern, e.g. `'/users/:id'` or `'/posts/:postId/comments/:commentId'`.
+</ParamField>
+
+<ParamField path="url" type="string" required>
+  The URL pathname to match against the template. URI components are decoded automatically.
+</ParamField>
+
+### Return value
+
+Returns the `path-to-regexp` `MatchResult` object (with `params`, `path`, `index`) when the template matches, or `null` when it does not.
+
+### Usage
+
+```ts
+import { parseRouteUrl } from 'react-declarative';
+
+const result = parseRouteUrl('/users/:id', '/users/42');
+// result.params => { id: '42' }
+
+const noMatch = parseRouteUrl('/users/:id', '/posts/42');
+// noMatch => null
+```
+
+---
+
+## getRouteParams
+
+Iterates a routes array and returns the named parameters extracted from the first matching route as a plain object. This is the same matching logic used internally by `useRouteParams`.
+
+### Signature
+
+```ts
+interface ISwitchItem {
+  path: string;
+}
+
+function getRouteParams<T = Record<string, any>>(
+  routes: ISwitchItem[],
+  pathname: string
+): T | null
+```
+
+### Parameters
+
+<ParamField path="routes" type="ISwitchItem[]" required>
+  Array of route objects. Only the `path` property is used for matching.
+</ParamField>
+
+<ParamField path="pathname" type="string" required>
+  The URL pathname to match.
+</ParamField>
+
+### Return value
+
+Returns an object of type `T` whose keys are the named segments from the matching route's `path`, or `null` if no route matches.
+
+### Usage
+
+```ts
+import { getRouteParams } from 'react-declarative';
+
+const routes = [{ path: '/orders/:orderId' }];
+
+const params = getRouteParams<{ orderId: string }>(routes, '/orders/99');
+// params => { orderId: '99' }
+```
+
+---
+
+## toRouteUrl
+
+Builds a URL by filling a `path-to-regexp` template with a parameters object. Use this whenever you need to programmatically construct a URL for navigation or links.
+
+### Signature
+
+```ts
+function toRouteUrl(template: string, params: object): string
+```
+
+### Parameters
+
+<ParamField path="template" type="string" required>
+  A `path-to-regexp` compatible route pattern, e.g. `'/users/:userId/posts/:postId'`.
+</ParamField>
+
+<ParamField path="params" type="object" required>
+  An object whose keys match the named segments in `template`. URI encoding is applied automatically.
+</ParamField>
+
+### Return value
+
+A fully constructed URL string with all named segments replaced by their values from `params`.
+
+### Usage
+
+```ts
+import { toRouteUrl } from 'react-declarative';
+
+const url = toRouteUrl('/users/:userId/posts/:postId', {
+  userId: '42',
+  postId: '7',
+});
+// url => '/users/42/posts/7'
+
+// Use with history.push for programmatic navigation
+history.push(toRouteUrl('/orders/:id', { id: order.id }));
+```
