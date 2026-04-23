@@ -66,6 +66,28 @@ Load these when you need deep detail on a specific area:
 - [`references/slot-factory.md`](references/slot-factory.md) — OneSlotFactory, ListSlotFactory, all slot interfaces, react-declarative-mantine
 - [`references/advanced.md`](references/advanced.md) — AI-assisted form generation, playground, prompt workflow, reference sample list
 
+## Example schemas (real-world TypedField[] code)
+
+Load these when you need a working example close to what the user is asking for:
+
+- [`references/login_form_example.md`](references/login_form_example.md) — centered login card with email/password and action feedback
+- [`references/account_info_example.md`](references/account_info_example.md) — account settings page with profile fields and permissions
+- [`references/profile_card_form_example.md`](references/profile_card_form_example.md) — avatar layout, nested groups, Component injection
+- [`references/settings_page_form_example.md`](references/settings_page_form_example.md) — settings page with Switch, Slider, Rating, Progress
+- [`references/adaptive_form_example.md`](references/adaptive_form_example.md) — responsive form with desktopColumns/tabletColumns/phoneColumns breakpoints
+- [`references/variant_form_example.md`](references/variant_form_example.md) — conditional field visibility with isVisible / FieldType.Condition
+- [`references/order_info_form_example.md`](references/order_info_form_example.md) — multi-section order form with Paper, Date, Combo
+- [`references/product_shape_form_example.md`](references/product_shape_form_example.md) — product data form with nested structure
+- [`references/rate_card_form_example.md`](references/rate_card_form_example.md) — rate card / pricing form
+- [`references/crypto_form_example.md`](references/crypto_form_example.md) — crypto / financial data entry form
+- [`references/machine_learning_form_example.md`](references/machine_learning_form_example.md) — ML model configuration form
+- [`references/dashboard_form_example.md`](references/dashboard_form_example.md) — dashboard layout with KPI cards and read-only display panels
+- [`references/kpi_review_example.md`](references/kpi_review_example.md) — KPI review / metrics display form
+- [`references/google_forms_like_example.md`](references/google_forms_like_example.md) — survey-style form similar to Google Forms
+- [`references/custom_form_example.md`](references/custom_form_example.md) — custom layout with FieldType.Layout / FieldType.Component
+- [`references/gallery_of_controls_example.md`](references/gallery_of_controls_example.md) — every FieldType in one form; use as a lookup when a less common field type is needed
+- [`references/typography_example.md`](references/typography_example.md) — typography and display-only fields (FieldType.Typography, Line, Icon)
+
 ## Minimal working examples
 
 ### Form with One
